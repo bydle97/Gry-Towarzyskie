@@ -412,3 +412,146 @@
   transform: scale(0.98);
 }
 
+/* --- Ekran szczegółów gry ------------------------------------------------- */
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-bottom: var(--space-2);
+}
+
+.details__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.details__icon {
+  font-size: clamp(2.5rem, 12vw, 3.5rem);
+  line-height: 1;
+}
+
+.details__title {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.details__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.details__badge {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.details__badge--count {
+  border-color: rgba(255, 179, 71, 0.5);
+  color: var(--color-accent);
+}
+
+.details__section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Cel gry — wyraźnie większy niż zwykły tekst. */
+.details__goal {
+  font-size: clamp(1.15rem, 4.6vw, 1.35rem);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* Lista numerowana z dużymi numerami w kółku (numery rysuje CSS). */
+.details__steps {
+  counter-reset: details-step;
+}
+
+.details__step {
+  counter-increment: details-step;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+.details__step + .details__step {
+  border-top: 1px solid var(--color-border);
+}
+
+.details__step::before {
+  content: counter(details-step);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.details__tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.details__tip {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.details__tip::before {
+  content: '•';
+  color: var(--color-accent);
+}
+
+/*
+ * Pasek akcji przyklejony do dołu ekranu. Sticky (a nie fixed), żeby zajmował
+ * miejsce w układzie i nie zasłaniał końca instrukcji; safe-area trzyma go
+ * nad paskiem gestów na telefonach.
+ */
+.details__actions {
+  position: sticky;
+  bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: rgba(20, 26, 46, 0.97);
+  box-shadow: 0 -10px 28px rgba(3, 6, 15, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.details__start {
+  min-height: 56px;
+  font-size: 1.1rem;
+}
+

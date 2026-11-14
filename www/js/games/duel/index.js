@@ -97,6 +97,21 @@ const game = {
   minPlayers: 2,
   maxPlayers: 20,
 
+  howToPlay: {
+    goal: 'Wymieniaj rzeczy z kategorii szybciej niż rywal i nie daj się zaskoczyć zegarowi.',
+    steps: [
+      'Gracze dzielą się na dwie drużyny, a w każdej rundzie pojedynkuje się jedna osoba z każdej z nich.',
+      `Połóżcie telefon między sobą i dotknijcie „Start". Każdy ma swoją połowę ekranu i jedną pulę czasu: ${PLAYER_TIME_SECONDS} s na cały pojedynek.`,
+      'Zegar chodzi osobie wskazanej napisem „Zaczyna: …". Wymienia ona jedną rzecz z kategorii i dotyka swojej połowy ekranu.',
+      'Po dotknięciu zegar tej osoby staje z zapamiętanym czasem, a rusza zegar przeciwnika. Kto nie zdąży wymienić rzeczy — przegrywa.',
+      'Punkt dostaje drużyna przeciwnika. Rund jest tyle, ile osób ma większa drużyna.',
+    ],
+    tips: [
+      'Rzeczy, które już padły, nie powtarzają się.',
+      'W razie sporu użyjcie „Pauza", a potem „Wznów" — zegar stoi w miejscu.',
+    ],
+  },
+
   /**
    * @param {HTMLElement} container
    * @param {string[]} players

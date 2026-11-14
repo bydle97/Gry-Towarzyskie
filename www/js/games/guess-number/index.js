@@ -50,6 +50,21 @@ const game = {
   minPlayers: 2,
   maxPlayers: 10,
 
+  howToPlay: {
+    goal: 'Zgadnij liczbę z pytania i bądź najbliżej prawdziwej odpowiedzi.',
+    steps: [
+      'Jedna osoba czyta pytanie na głos. Odpowiedzią jest liczba: ilość, rok albo miara.',
+      'Telefon krąży po kolei po graczach. Każdy wpisuje swoją liczbę i dotyka „Zatwierdź".',
+      'Gdy wszyscy obstawią, dotknijcie „Pokaż odpowiedź" — zobaczycie prawdziwą odpowiedź i ranking od najbliższego typu.',
+      'Ranking pokazuje każdy typ i różnicę od odpowiedzi. Najbliższy gracz zaczyna następne pytanie, potem kolejni według rankingu.',
+      'Gdy pytania się skończą, zobaczycie ekran „Koniec" — partia jest skończona i wracacie do HUB-a.',
+    ],
+    tips: [
+      'Typy poprzednich graczy są widoczne na liście, więc kolejność ma znaczenie.',
+      'Możecie obstawić tę samą liczbę co poprzednik — to nie jest błąd.',
+    ],
+  },
+
   /**
    * @param {HTMLElement} container
    * @param {string[]} players

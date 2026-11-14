@@ -1,5 +1,6 @@
 /**
- * Ekran szczegółów gry: opis, lista graczy z sesji i przycisk "Start".
+ * Ekran szczegółów gry: duży nagłówek, znaczniki liczby graczy, instrukcja
+ * (cel, kroki, wskazówki) oraz przyklejony do dołu pasek akcji ze "Start".
  * Start prowadzi do ekranu rozgrywki (rejestrowanego razem z grami).
  */
 import { el } from '../core/dom.js';
@@ -23,54 +24,117 @@ export function renderDetailsScreen({ container, params }) {
   const playersOk = playerNames.length >= game.minPlayers && playerNames.length <= game.maxPlayers;
 
   container.append(
-    el('div', { class: 'panel' }, [
-      el('div', { class: 'row' }, [
-        el('span', { class: 'game-card__icon', 'aria-hidden': 'true', text: game.icon }),
-        el('div', { class: 'stack' }, [
-          el('h2', { class: 'game-card__title', text: game.name }),
-          el('p', {
-            class: 'game-card__meta',
-            text: `Zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}`,
-          }),
-        ]),
-      ]),
-      el('p', { text: game.description }),
-    ]),
-
-    el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: `Gracze: ${playerNames.length}` }),
-      playerNames.length > 0
-        ? el(
-            'ul',
-            { class: 'player-list' },
-            playerNames.map((name, index) =>
-              el('li', { class: 'chip', text: `${index + 1}. ${name}` }),
-            ),
-          )
-        : el('p', { class: 'stepper__hint', text: 'Nie wybrano jeszcze graczy.' }),
+    el('div', { class: 'details' }, [
+      createHeader(game, playerNames.length),
+      ...createInstruction(game),
       playersOk
         ? null
         : el('p', {
             class: 'form-error',
             text: `Wymagany zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}.`,
           }),
+      createActions(game, playersOk),
     ]),
+  );
+}
 
+/**
+ * Nagłówek: ikona, nazwa gry i dwa znaczniki z liczbą graczy.
+ * @param {Readonly<import('../core/game-contract.js').GameDefinition>} game
+ * @param {number} playersCount
+ * @returns {HTMLElement}
+ */
+function createHeader(game, playersCount) {
+  return el('header', { class: 'details__head' }, [
+    el('span', { class: 'details__icon', 'aria-hidden': 'true', text: game.icon }),
+    el('h2', { class: 'details__title', text: game.name }),
+    el('div', { class: 'details__badges' }, [
+      el('span', {
+        class: 'details__badge',
+        text: `Zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}`,
+      }),
+      el('span', {
+        class: 'details__badge details__badge--count',
+        text: `Gracze: ${playersCount}`,
+      }),
+    ]),
+  ]);
+}
+
+/**
+ * Instrukcja gry. Gra bez howToPlay pokazuje zamiast kroków sam opis dużą czcionką.
+ * @param {Readonly<import('../core/game-contract.js').GameDefinition>} game
+ * @returns {HTMLElement[]}
+ */
+function createInstruction(game) {
+  const howToPlay = game.howToPlay;
+
+  if (!howToPlay) {
+    return [
+      el('section', { class: 'panel' }, [
+        el('h3', { class: 'details__section-title', text: 'O grze' }),
+        el('p', { class: 'details__goal', text: game.description }),
+      ]),
+    ];
+  }
+
+  const sections = [
+    el('section', { class: 'panel' }, [
+      el('h3', { class: 'details__section-title', text: 'Cel gry' }),
+      el('p', { class: 'details__goal', text: howToPlay.goal }),
+    ]),
+    el('section', { class: 'panel' }, [
+      el('h3', { class: 'details__section-title', text: 'Jak grać' }),
+      el(
+        'ol',
+        { class: 'details__steps' },
+        howToPlay.steps.map((step) =>
+          el('li', { class: 'details__step' }, [el('span', { text: step })]),
+        ),
+      ),
+    ]),
+  ];
+
+  if (Array.isArray(howToPlay.tips) && howToPlay.tips.length > 0) {
+    sections.push(
+      el('section', { class: 'panel' }, [
+        el('h3', { class: 'details__section-title', text: 'Wskazówki' }),
+        el(
+          'ul',
+          { class: 'details__tips' },
+          howToPlay.tips.map((tip) =>
+            el('li', { class: 'details__tip' }, [el('span', { text: tip })]),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  return sections;
+}
+
+/**
+ * Pasek akcji przyklejony do dołu ekranu.
+ * @param {Readonly<import('../core/game-contract.js').GameDefinition>} game
+ * @param {boolean} playersOk
+ * @returns {HTMLElement}
+ */
+function createActions(game, playersOk) {
+  return el('div', { class: 'details__actions' }, [
     el('button', {
-      class: 'button button--primary button--block',
+      class: 'button button--primary button--block details__start',
       type: 'button',
       text: 'Start',
       disabled: !playersOk,
       onClick: () => navigate('game', { gameId: game.id }),
     }),
-
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
       text: 'Wróć do listy graczy',
       onClick: () => navigate('home', {}, { reset: true }),
     }),
-  );
+  ]);
 }
 
 function createMissingGameBox() {

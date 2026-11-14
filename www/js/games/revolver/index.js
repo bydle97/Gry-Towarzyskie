@@ -56,6 +56,21 @@ const game = {
   minPlayers: 4,
   maxPlayers: 20,
 
+  howToPlay: {
+    goal: 'Twoja drużyna ma pierwsza odgadnąć hasło.',
+    steps: [
+      'Gracze dzielą się na dwie drużyny — losowo albo ręcznie, klikając imiona. Każda drużyna musi mieć co najmniej 2 osoby.',
+      'W każdej rundzie telefon biorą dwie osoby, po jednej z każdej drużyny, i dotykają „Pokaż hasło". Reszta odwraca wzrok.',
+      'Obie osoby widzą to samo hasło i na zmianę mówią po jednym słowie. Pierwsze słowo mówi drużyna pokazana na ekranie.',
+      'Gdy któraś drużyna odgadnie, dotknijcie „Odgadła Drużyna 1" albo „Odgadła Drużyna 2". Jeśli nikt nie odgadł lub ktoś oszukiwał — „Unieważnij (0 pkt)".',
+      'Gra trwa tyle rund, ile osób ma większa drużyna. Punkt za każdą wygraną rundę, a wygrywa drużyna z większą liczbą punktów.',
+    ],
+    tips: [
+      'Szczegóły, np. czy wolno używać słów z hasła, ustalcie przed grą.',
+      'Ekran „Podaj telefon dalej" jest po to, żeby nikt nie zobaczył hasła przed czasem.',
+    ],
+  },
+
   /**
    * @param {HTMLElement} container
    * @param {string[]} players

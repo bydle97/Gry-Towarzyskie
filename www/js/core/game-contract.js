@@ -5,8 +5,14 @@
  *
  *   id          {string}   unikalny identyfikator: małe litery, cyfry i myślniki, np. "example"
  *   name        {string}   nazwa widoczna w interfejsie, np. "Przykład"
- *   description {string}   krótki opis (1–2 zdania) pokazywany na karcie i w szczegółach
+ *   description {string}   krótki opis (1–2 zdania) pokazywany na karcie gry
  *   icon        {string}   emoji zamiast pliku graficznego (działa offline, bez zależności)
+ *   howToPlay   {HowToPlay} [opcjonalne] instrukcja dla ekranu szczegółów:
+ *                          { goal: string, steps: string[], tips?: string[] }
+ *                          goal — jedno zdanie o celu gry,
+ *                          steps — od 3 do 6 krótkich kroków (każdy do ok. 140 znaków),
+ *                          tips — opcjonalne krótkie wskazówki.
+ *                          Gra bez howToPlay pokazuje na szczegółach sam opis.
  *   minPlayers  {number}   minimalna liczba graczy (liczba całkowita >= 1)
  *   maxPlayers  {number}   maksymalna liczba graczy (liczba całkowita >= minPlayers)
  *   mount(container, players, api)  uruchamia grę
@@ -64,11 +70,20 @@ export const GAME_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  */
 
 /**
+ * Instrukcja gry pokazywana na ekranie szczegółów (pole opcjonalne).
+ * @typedef {Object} HowToPlay
+ * @property {string} goal   jedno zdanie: o co chodzi w grze
+ * @property {string[]} steps  od 3 do 6 krótkich kroków (każdy do ok. 140 znaków)
+ * @property {string[]} [tips]  opcjonalne krótkie wskazówki
+ */
+
+/**
  * Definicja gry — pełny kształt obiektu wymagany przez rejestr gier.
  * @typedef {Object} GameDefinition
  * @property {string} id
  * @property {string} name
  * @property {string} description
+ * @property {HowToPlay} [howToPlay]
  * @property {string} icon
  * @property {number} minPlayers
  * @property {number} maxPlayers
@@ -119,6 +134,45 @@ export function validateGame(game) {
   }
   if (typeof game.unmount !== 'function') {
     errors.push('Pole "unmount" musi być funkcją bez argumentów.');
+  }
+  if (game.howToPlay !== undefined) {
+    errors.push(...validateHowToPlay(game.howToPlay));
+  }
+
+  return errors;
+}
+
+/**
+ * Waliduje opcjonalną instrukcję gry (pole howToPlay).
+ * @param {unknown} howToPlay
+ * @returns {string[]} komunikaty po polsku; pusta tablica = instrukcja poprawna
+ */
+function validateHowToPlay(howToPlay) {
+  if (howToPlay === null || typeof howToPlay !== 'object') {
+    return ['Pole "howToPlay" musi być obiektem { goal, steps, tips }.'];
+  }
+
+  const errors = [];
+
+  if (typeof howToPlay.goal !== 'string' || howToPlay.goal.trim() === '') {
+    errors.push('Pole "howToPlay.goal" musi być niepustym tekstem.');
+  }
+  if (
+    !Array.isArray(howToPlay.steps) ||
+    howToPlay.steps.length < 3 ||
+    howToPlay.steps.length > 6
+  ) {
+    errors.push('Pole "howToPlay.steps" musi być tablicą od 3 do 6 kroków.');
+  } else if (howToPlay.steps.some((step) => typeof step !== 'string' || step.trim() === '')) {
+    errors.push('Każdy krok w "howToPlay.steps" musi być niepustym tekstem.');
+  }
+  if (howToPlay.tips !== undefined) {
+    const tipsOk =
+      Array.isArray(howToPlay.tips) &&
+      howToPlay.tips.every((tip) => typeof tip === 'string' && tip.trim() !== '');
+    if (!tipsOk) {
+      errors.push('Pole "howToPlay.tips" musi być tablicą niepustych tekstów.');
+    }
   }
 
   return errors;
