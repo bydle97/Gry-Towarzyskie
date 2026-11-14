@@ -7,6 +7,7 @@ import { initRouter, navigate, registerScreen } from './core/router.js';
 import { renderHomeScreen } from './screens/home-screen.js';
 import { renderPlayersScreen } from './screens/players-screen.js';
 import { renderDetailsScreen } from './screens/details-screen.js';
+import { renderGameScreen } from './screens/game-screen.js';
 
 const container = document.getElementById('app');
 const titleElement = document.getElementById('screen-title');
@@ -33,5 +34,9 @@ registerScreen('details', {
   render: renderDetailsScreen,
 });
 
-// Ekran rozgrywki ("game") dołączy razem z pierwszą grą w KROKU 6.
+registerScreen('game', {
+  title: ({ gameId }) => getGameById(gameId)?.name ?? 'Gra',
+  render: renderGameScreen,
+});
+
 navigate('home', {}, { reset: true });

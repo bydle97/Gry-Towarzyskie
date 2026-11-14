@@ -14,13 +14,14 @@
 import { defineGame } from './game-contract.js';
 
 // --- IMPORTY GIER -----------------------------------------------------------
-// Każda gra = jeden folder w js/games/. Wzór (działa po dodaniu gry w KROKU 6):
+// Każda gra = jeden folder w js/games/. Wzór:
 // import exampleGame from '../games/example/index.js';
+import guessNumberGame from '../games/guess-number/index.js';
 
 // --- LISTA GIER -------------------------------------------------------------
 // Kolejność na liście = kolejność kart na ekranie głównym.
 const RAW_GAMES = [
-  // exampleGame,
+  guessNumberGame,
 ];
 
 const seenIds = new Set();
