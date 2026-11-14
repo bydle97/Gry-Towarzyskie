@@ -1,6 +1,6 @@
 /**
  * Punkt wejścia HUB-a: podłącza router do szkieletu z index.html,
- * rejestruje ekrany i pokazuje ekran główny.
+ * rejestruje ekrany i startuje od listy graczy (pierwszy ekran aplikacji).
  */
 import { getGameById } from './core/games-registry.js';
 import { initRouter, navigate, registerScreen } from './core/router.js';
@@ -39,4 +39,5 @@ registerScreen('game', {
   render: renderGameScreen,
 });
 
-navigate('home', {}, { reset: true });
+// Aplikacja startuje od listy graczy — grę wybieramy dopiero po skomponowaniu ekipy.
+navigate('players', {}, { reset: true });

@@ -17,11 +17,13 @@ import { defineGame } from './game-contract.js';
 // Każda gra = jeden folder w js/games/. Wzór:
 // import exampleGame from '../games/example/index.js';
 import guessNumberGame from '../games/guess-number/index.js';
+import revolverGame from '../games/revolver/index.js';
 
 // --- LISTA GIER -------------------------------------------------------------
 // Kolejność na liście = kolejność kart na ekranie głównym.
 const RAW_GAMES = [
   guessNumberGame,
+  revolverGame,
 ];
 
 const seenIds = new Set();

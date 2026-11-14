@@ -1,25 +1,17 @@
 /**
- * Drobne funkcje formatujące teksty interfejsu (odmiana po polsku).
+ * Drobne funkcje formatujące teksty interfejsu.
+ *
+ * Zasada: liczby graczy podajemy BEZ odmiany (np. „Gracze: 2", „Zakres graczy: 2–10"),
+ * żeby uniknąć błędnych form typu „2 graczy".
  */
 
 /**
- * "1 gracz", "4 graczy".
- * @param {number} count
- * @returns {string}
- */
-export function formatPlayersCount(count) {
-  return count === 1 ? '1 gracz' : `${count} graczy`;
-}
-
-/**
- * "1 gracz", "4 graczy" albo "3–8 graczy", gdy zakres jest szerszy.
+ * Zakres liczby graczy bez odmiany: „2–10" albo „4", gdy zakres jest jednoelementowy.
+ * W etykiecie używaj razem z opisem, np. `Zakres graczy: ${formatPlayersRange(min, max)}`.
  * @param {number} minPlayers
  * @param {number} maxPlayers
  * @returns {string}
  */
 export function formatPlayersRange(minPlayers, maxPlayers) {
-  if (minPlayers === maxPlayers) {
-    return formatPlayersCount(minPlayers);
-  }
-  return `${minPlayers}–${maxPlayers} graczy`;
+  return minPlayers === maxPlayers ? `${minPlayers}` : `${minPlayers}–${maxPlayers}`;
 }

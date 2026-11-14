@@ -1,0 +1,58 @@
+# Wdrożenie HUB-a na GitHub Pages.
+#
+# Projekt jest w pełni statyczny: publikujemy zawartość folderu www/ taką, jaka jest
+# (bez budowania, bez npm, bez zależności). Strona będzie dostępna pod adresem
+# https://<użytkownik>.github.io/<repozytorium>/ dlatego wszystkie ścieżki w www/
+# są względne (./css/..., ./js/...).
+#
+# Wymagane jednorazowe ustawienie w repozytorium:
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+#
+# Wersje akcji: aktualne wydania major (checkout v7, configure-pages v6,
+# upload-pages-artifact v5, deploy-pages v5 — zgodne ze sobą).
+name: Deploy na GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Jedno wdrożenie naraz: nowe uruchomienie czeka w kolejce, a nie przerywa
+# trwającego wdrożenia (cancel-in-progress: false).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Przygotowanie artefaktu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobranie repozytorium
+        uses: actions/checkout@v7
+
+      - name: Konfiguracja GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Spakowanie folderu www
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./www
+
+  deploy:
+    name: Publikacja na GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Wdrożenie artefaktu
+        id: deployment
+        uses: actions/deploy-pages@v5

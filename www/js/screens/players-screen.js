@@ -1,175 +1,269 @@
 /**
- * Ekran konfiguracji graczy: liczba graczy w dozwolonym zakresie gry + imiona.
- * Imiona trzymamy wyłącznie w pamięci sesji (js/core/session.js) — bez zapisu na dysku.
+ * Pierwszy ekran aplikacji: lista graczy sesji.
+ * Graczy dodajemy, edytujemy i usuwamy w pamięci (js/core/session.js) — bez zapisu na dysku.
+ * Ta sama lista trafia potem do każdej gry w mount(container, players, api).
  */
 import { clear, el } from '../core/dom.js';
-import { formatPlayersCount, formatPlayersRange } from '../core/format.js';
-import { getGameById } from '../core/games-registry.js';
 import { navigate } from '../core/router.js';
 import {
   PLAYER_NAME_MAX_LENGTH,
+  addPlayerName,
   getPlayerNames,
-  normalizePlayerName,
-  setPlayerNames,
-  validatePlayerNames,
+  removePlayerName,
+  updatePlayerName,
 } from '../core/session.js';
 
+/** Ilu graczy potrzeba, aby przejść do listy gier. */
+const MIN_PLAYERS_TO_CONTINUE = 2;
+
 /**
- * @param {{container: HTMLElement, params: {gameId?: string}}} context
+ * @param {{container: HTMLElement}} context
  */
-export function renderPlayersScreen({ container, params }) {
-  const game = getGameById(params.gameId);
+export function renderPlayersScreen({ container }) {
+  const view = {
+    editingIndex: -1,
+    draftName: '',
+    editDraft: '',
+    error: '',
+    focusAdd: false,
+    focusEdit: false,
+  };
 
-  if (!game) {
-    container.append(createMissingGameBox());
-    return;
-  }
+  function render() {
+    clear(container);
 
-  const rememberedNames = getPlayerNames();
-  const names = Array.from({ length: game.maxPlayers }, (_, index) => rememberedNames[index] ?? '');
-  const startingCount = rememberedNames.length > 0 ? rememberedNames.length : game.minPlayers;
-  let playerCount = clamp(startingCount, game.minPlayers, game.maxPlayers);
+    const players = getPlayerNames();
 
-  const countValue = el('span', {
-    class: 'stepper__value',
-    text: String(playerCount),
-    'aria-live': 'polite',
-  });
-  const minusButton = el('button', {
-    class: 'stepper__button',
-    type: 'button',
-    text: '−',
-    'aria-label': 'Mniej graczy',
-    onClick: () => changeCount(-1),
-  });
-  const plusButton = el('button', {
-    class: 'stepper__button',
-    type: 'button',
-    text: '+',
-    'aria-label': 'Więcej graczy',
-    onClick: () => changeCount(1),
-  });
-  const fieldsList = el('div', { class: 'stack' });
-  const errorBox = el('p', { class: 'form-error', role: 'alert', hidden: true });
+    container.append(
+      el('p', {
+        class: 'screen__intro',
+        text: 'Dodaj graczy, a potem wybierz grę. Lista żyje tylko w pamięci aplikacji.',
+      }),
+      createAddForm(),
+      createErrorBox(),
+      createPlayersPanel(players),
+      createFooter(players),
+    );
 
-  function changeCount(delta) {
-    playerCount = clamp(playerCount + delta, game.minPlayers, game.maxPlayers);
-    renderFields();
-  }
-
-  function hideError() {
-    errorBox.hidden = true;
-    errorBox.textContent = '';
-  }
-
-  function renderFields() {
-    clear(fieldsList);
-
-    for (let index = 0; index < playerCount; index += 1) {
-      const input = el('input', {
-        class: 'input',
-        type: 'text',
-        id: `player-name-${index}`,
-        maxLength: PLAYER_NAME_MAX_LENGTH,
-        autocomplete: 'off',
-        placeholder: 'Wpisz imię',
-        value: names[index],
-        onInput: (event) => {
-          names[index] = event.target.value;
-          hideError();
-        },
-      });
-
-      fieldsList.append(
-        el('div', { class: 'field' }, [
-          el('label', { class: 'field__label', for: `player-name-${index}`, text: `Gracz ${index + 1}` }),
-          input,
-        ]),
-      );
+    if (view.focusAdd) {
+      view.focusAdd = false;
+      container.querySelector('#player-name-input')?.focus();
+    } else if (view.focusEdit) {
+      view.focusEdit = false;
+      container.querySelector('#edit-player-input')?.focus();
     }
-
-    countValue.textContent = String(playerCount);
-    minusButton.disabled = playerCount <= game.minPlayers;
-    plusButton.disabled = playerCount >= game.maxPlayers;
-    submitButton.textContent = `Dalej: ${formatPlayersCount(playerCount)}`;
   }
 
-  function onSubmit() {
-    const enteredNames = names.slice(0, playerCount).map(normalizePlayerName);
-    const errors = validatePlayerNames(enteredNames);
+  function createAddForm() {
+    return el(
+      'form',
+      {
+        class: 'panel',
+        novalidate: true,
+        onSubmit: (event) => {
+          event.preventDefault();
+          handleAdd();
+        },
+      },
+      [
+        el('label', { class: 'field__label', for: 'player-name-input', text: 'Nowy gracz' }),
+        el('div', { class: 'row' }, [
+          el('input', {
+            class: 'input',
+            id: 'player-name-input',
+            type: 'text',
+            maxLength: PLAYER_NAME_MAX_LENGTH,
+            autocomplete: 'off',
+            placeholder: 'Imię gracza',
+            value: view.draftName,
+            onInput: (event) => {
+              view.draftName = event.target.value;
+            },
+          }),
+          el('button', { class: 'button button--primary', type: 'submit', text: 'Dodaj' }),
+        ]),
+        el('p', {
+          class: 'stepper__hint',
+          text: `Maksymalnie ${PLAYER_NAME_MAX_LENGTH} znaków, bez powtórzeń.`,
+        }),
+      ],
+    );
+  }
 
-    if (errors.length > 0) {
-      errorBox.textContent = errors[0];
-      errorBox.hidden = false;
+  function createErrorBox() {
+    return el('p', {
+      class: 'form-error',
+      role: 'alert',
+      hidden: view.error === '',
+      text: view.error,
+    });
+  }
 
-      const firstEmptyIndex = enteredNames.findIndex((name) => name === '');
-      if (firstEmptyIndex >= 0) {
-        const input = fieldsList.querySelectorAll('input')[firstEmptyIndex];
-        if (input) {
-          input.focus();
-        }
-      }
+  function createPlayersPanel(players) {
+    const rows =
+      players.length === 0
+        ? [el('p', { class: 'stepper__hint', text: 'Lista jest pusta. Dodaj pierwszego gracza.' })]
+        : players.map((name, index) =>
+            view.editingIndex === index ? createEditRow(index) : createPlayerRow(name, index),
+          );
+
+    return el('div', { class: 'panel' }, [
+      el('h2', {
+        class: 'panel__title',
+        text: `Lista graczy: ${players.length}`,
+      }),
+      el('div', { class: 'stack' }, rows),
+    ]);
+  }
+
+
+  function createPlayerRow(name, index) {
+    return el('div', { class: 'player-row' }, [
+      el('span', { class: 'player-row__index', text: `${index + 1}.` }),
+      el('span', { class: 'player-row__name', text: name }),
+      el('div', { class: 'player-row__actions' }, [
+        el('button', {
+          class: 'button button--secondary button--compact',
+          type: 'button',
+          text: 'Edytuj',
+          'aria-label': `Edytuj gracza ${name}`,
+          onClick: () => startEdit(index),
+        }),
+        el('button', {
+          class: 'button button--secondary button--compact',
+          type: 'button',
+          text: 'Usuń',
+          'aria-label': `Usuń gracza ${name}`,
+          onClick: () => handleRemove(index),
+        }),
+      ]),
+    ]);
+  }
+
+  function createEditRow(index) {
+    return el(
+      'form',
+      {
+        class: 'player-row player-row--editing',
+        novalidate: true,
+        onSubmit: (event) => {
+          event.preventDefault();
+          handleSave(index);
+        },
+      },
+      [
+        el('label', {
+          class: 'visually-hidden',
+          for: 'edit-player-input',
+          text: `Imię gracza ${index + 1}`,
+        }),
+        el('input', {
+          class: 'input',
+          id: 'edit-player-input',
+          type: 'text',
+          maxLength: PLAYER_NAME_MAX_LENGTH,
+          autocomplete: 'off',
+          value: view.editDraft,
+          onInput: (event) => {
+            view.editDraft = event.target.value;
+          },
+        }),
+        el('div', { class: 'player-row__actions' }, [
+          el('button', {
+            class: 'button button--primary button--compact',
+            type: 'submit',
+            text: 'Zapisz',
+          }),
+          el('button', {
+            class: 'button button--secondary button--compact',
+            type: 'button',
+            text: 'Anuluj',
+            onClick: cancelEdit,
+          }),
+        ]),
+      ],
+    );
+  }
+
+  function createFooter(players) {
+    const canContinue = players.length >= MIN_PLAYERS_TO_CONTINUE;
+
+    return el('div', { class: 'stack' }, [
+      canContinue
+        ? null
+        : el('p', {
+            class: 'stepper__hint',
+            text: `Minimalna liczba graczy do przejścia dalej: ${MIN_PLAYERS_TO_CONTINUE}.`,
+          }),
+      el('button', {
+        class: 'button button--primary button--block',
+        type: 'button',
+        text: 'Dalej: wybierz grę',
+        disabled: !canContinue,
+        onClick: () => navigate('home', {}, { replace: true }),
+      }),
+    ]);
+  }
+
+  function handleAdd() {
+    const result = addPlayerName(view.draftName);
+
+    if (!result.ok) {
+      view.error = result.error;
+      view.focusAdd = true;
+      render();
       return;
     }
 
-    setPlayerNames(enteredNames);
-    navigate('details', { gameId: game.id });
+    view.draftName = '';
+    view.error = '';
+    view.focusAdd = true;
+    render();
   }
 
-  const submitButton = el('button', {
-    class: 'button button--primary button--block',
-    type: 'button',
-    text: `Dalej: ${formatPlayersCount(playerCount)}`,
-    onClick: onSubmit,
-  });
+  function startEdit(index) {
+    view.editingIndex = index;
+    view.editDraft = getPlayerNames()[index] ?? '';
+    view.error = '';
+    view.focusEdit = true;
+    render();
+  }
 
-  container.append(
-    el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: 'Liczba graczy' }),
-      el('div', { class: 'stepper' }, [minusButton, countValue, plusButton]),
-      el('p', {
-        class: 'stepper__hint',
-        text: `Dla tej gry: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}.`,
-      }),
-    ]),
+  function cancelEdit() {
+    view.editingIndex = -1;
+    view.editDraft = '';
+    view.error = '';
+    render();
+  }
 
-    el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: 'Imiona graczy' }),
-      el('p', {
-        class: 'stepper__hint',
-        text: 'Imiona są przechowywane tylko w pamięci aplikacji i znikają po zamknięciu karty.',
-      }),
-      fieldsList,
-      errorBox,
-    ]),
+  function handleSave(index) {
+    const result = updatePlayerName(index, view.editDraft);
 
-    submitButton,
-  );
+    if (!result.ok) {
+      view.error = result.error;
+      view.focusEdit = true;
+      render();
+      return;
+    }
 
-  renderFields();
-}
+    view.editingIndex = -1;
+    view.editDraft = '';
+    view.error = '';
+    render();
+  }
 
-/**
- * Ogranicza liczbę do zakresu <min, max>.
- * @param {number} value
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
+  function handleRemove(index) {
+    if (view.editingIndex === index) {
+      view.editingIndex = -1;
+      view.editDraft = '';
+    } else if (view.editingIndex > index) {
+      view.editingIndex -= 1;
+    }
 
-function createMissingGameBox() {
-  return el('div', { class: 'empty-state' }, [
-    el('span', { class: 'empty-state__icon', 'aria-hidden': 'true', text: '❓' }),
-    el('p', { class: 'empty-state__title', text: 'Nie znaleziono gry' }),
-    el('p', { text: 'Ta gra nie istnieje w rejestrze gier.' }),
-    el('button', {
-      class: 'button button--primary button--block',
-      type: 'button',
-      text: 'Wróć do listy gier',
-      onClick: () => navigate('home', {}, { reset: true }),
-    }),
-  ]);
+    removePlayerName(index);
+    view.error = '';
+    render();
+  }
+
+  render();
 }

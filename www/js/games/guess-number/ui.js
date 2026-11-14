@@ -200,7 +200,7 @@ function createGuessesList({ players, guesses }) {
       el('li', { class: 'gn-guess-row' }, [
         el('span', { class: 'gn-guess-order', text: `${index + 1}.` }),
         el('span', { class: 'gn-guess-name', text: players[guess.playerIndex] }),
-        el('span', { class: 'gn-guess-value', text: String(guess.value) }),
+        el('span', { class: 'gn-guess-value', text: formatNumber(guess.value) }),
       ]),
     ),
   );
@@ -354,8 +354,8 @@ export function renderAnswerScreen({
   onNext,
 }) {
   const answerText = question.unit
-    ? `${question.answer} ${question.unit}`
-    : String(question.answer);
+    ? `${formatNumber(question.answer)} ${question.unit}`
+    : formatNumber(question.answer);
 
   return el('div', { class: 'stack' }, [
     el('p', { class: 'gn-progress', text: `Pytanie ${questionNumber} z ${totalQuestions}` }),
@@ -375,10 +375,13 @@ export function renderAnswerScreen({
           el('li', { class: 'gn-ranking-row' }, [
             el('span', { class: 'gn-rank', text: `${index + 1}.` }),
             el('span', { class: 'gn-ranking-name', text: players[entry.playerIndex] }),
-            el('span', { class: 'gn-ranking-value', text: String(entry.value) }),
+            el('span', { class: 'gn-ranking-value', text: formatNumber(entry.value) }),
             el('span', {
               class: 'gn-ranking-distance',
-              text: entry.distance === 0 ? 'trafione co do jednego!' : `różnica ${entry.distance}`,
+              text:
+                entry.distance === 0
+                  ? 'trafione co do jednego!'
+                  : `różnica ${formatNumber(entry.distance)}`,
             }),
           ]),
         ),
@@ -463,5 +466,15 @@ export function renderExitDialog({ onConfirm, onCancel }) {
 function showError(node, message) {
   node.textContent = message;
   node.hidden = false;
+}
+
+/**
+ * Formatuje liczbę do czytelnej postaci (separator tysięcy wg języka polskiego).
+ * Tylko wyświetlanie — walidacja i logika gry operują na liczbach.
+ * @param {number} value
+ * @returns {string}
+ */
+function formatNumber(value) {
+  return value.toLocaleString('pl-PL');
 }
 

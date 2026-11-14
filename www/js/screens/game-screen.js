@@ -35,7 +35,7 @@ export function renderGameScreen({ container, params }) {
     container.append(
       createMessageBox({
         title: 'Zła liczba graczy',
-        text: `Ta gra wymaga od ${game.minPlayers} do ${game.maxPlayers} graczy, a wybrano ${players.length}.`,
+        text: `Wymagany zakres graczy: ${game.minPlayers}–${game.maxPlayers}. Wybrano: ${players.length}.`,
         actionLabel: 'Wróć do szczegółów gry',
         onAction: () => navigate('details', { gameId: game.id }, { replace: true }),
       }),

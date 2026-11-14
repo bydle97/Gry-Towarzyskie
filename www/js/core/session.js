@@ -7,9 +7,6 @@
 /** Maksymalna długość imienia gracza (znaki). */
 export const PLAYER_NAME_MAX_LENGTH = 20;
 
-/** Minimalna długość imienia gracza po przycięciu spacji. */
-export const PLAYER_NAME_MIN_LENGTH = 2;
-
 const state = {
   /** @type {string[]} imiona graczy na czas sesji */
   playerNames: [],
@@ -48,37 +45,91 @@ export function normalizePlayerName(value) {
 }
 
 /**
- * Waliduje listę imion graczy.
- * @param {string[]} names imiona już po normalizacji
- * @returns {string[]} komunikaty po polsku; pusta tablica = brak błędów
+ * Dodaje gracza do listy sesji.
+ * @param {string} rawName imię wpisane przez użytkownika (spacje są przycinane)
+ * @returns {{ok: true, names: string[]} | {ok: false, error: string}}
  */
-export function validatePlayerNames(names) {
-  if (names.length === 0) {
-    return ['Najpierw wybierz liczbę graczy.'];
+export function addPlayerName(rawName) {
+  const name = preparePlayerName(rawName);
+  const error = checkPlayerName(name, -1);
+
+  if (error !== '') {
+    return { ok: false, error };
   }
 
-  const errors = [];
-
-  names.forEach((name, index) => {
-    if (name === '') {
-      errors.push(`Podaj imię dla gracza ${index + 1}.`);
-    } else if (name.length < PLAYER_NAME_MIN_LENGTH) {
-      errors.push(`Imię gracza ${index + 1} musi mieć co najmniej ${PLAYER_NAME_MIN_LENGTH} znaki.`);
-    }
-  });
-
-  const seen = new Map();
-  names.forEach((name, index) => {
-    if (name === '') {
-      return;
-    }
-    const key = name.toLocaleLowerCase('pl');
-    if (seen.has(key)) {
-      errors.push(`Imiona nie mogą się powtarzać (gracz ${seen.get(key) + 1} i ${index + 1}).`);
-    } else {
-      seen.set(key, index);
-    }
-  });
-
-  return errors;
+  state.playerNames.push(name);
+  return { ok: true, names: getPlayerNames() };
 }
+
+/**
+ * Zmienia imię gracza o podanym indeksie (indeks = pozycja na liście sesji).
+ * @param {number} index
+ * @param {string} rawName
+ * @returns {{ok: true, names: string[]} | {ok: false, error: string}}
+ */
+export function updatePlayerName(index, rawName) {
+  if (!Number.isInteger(index) || index < 0 || index >= state.playerNames.length) {
+    return { ok: false, error: 'Nie znaleziono gracza do edycji.' };
+  }
+
+  const name = preparePlayerName(rawName);
+  const error = checkPlayerName(name, index);
+
+  if (error !== '') {
+    return { ok: false, error };
+  }
+
+  state.playerNames[index] = name;
+  return { ok: true, names: getPlayerNames() };
+}
+
+/**
+ * Usuwa gracza o podanym indeksie.
+ * @param {number} index
+ * @returns {string[]} aktualna lista imion
+ */
+export function removePlayerName(index) {
+  if (Number.isInteger(index) && index >= 0 && index < state.playerNames.length) {
+    state.playerNames.splice(index, 1);
+  }
+  return getPlayerNames();
+}
+
+/**
+ * Przycina spacje i skleja wielokrotne spacje. Celowo NIE obcina długości:
+ * zbyt długie imię ma zwrócić błąd walidacji, a nie zostać po cichu skrócone.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function preparePlayerName(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Sprawdza imię pojedynczego gracza (puste / za długie / duplikat bez względu na wielkość liter).
+ * @param {string} name imię po przygotowaniu
+ * @param {number} excludeIndex indeks pomijany przy sprawdzaniu duplikatów (-1 = brak)
+ * @returns {string} komunikat po polsku albo pusty tekst, gdy imię jest poprawne
+ */
+function checkPlayerName(name, excludeIndex) {
+  if (name === '') {
+    return 'Podaj imię gracza.';
+  }
+  if (name.length > PLAYER_NAME_MAX_LENGTH) {
+    return `Imię może mieć maksymalnie ${PLAYER_NAME_MAX_LENGTH} znaków.`;
+  }
+
+  const key = name.toLocaleLowerCase('pl');
+  const duplicate = state.playerNames.some(
+    (existing, index) => index !== excludeIndex && existing.toLocaleLowerCase('pl') === key,
+  );
+
+  if (duplicate) {
+    return `Gracz o imieniu „${name}” jest już na liście.`;
+  }
+
+  return '';
+}
+

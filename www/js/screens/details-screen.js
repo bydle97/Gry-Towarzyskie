@@ -3,7 +3,7 @@
  * Start prowadzi do ekranu rozgrywki (rejestrowanego razem z grami).
  */
 import { el } from '../core/dom.js';
-import { formatPlayersCount, formatPlayersRange } from '../core/format.js';
+import { formatPlayersRange } from '../core/format.js';
 import { getGameById } from '../core/games-registry.js';
 import { navigate } from '../core/router.js';
 import { getPlayerNames } from '../core/session.js';
@@ -30,7 +30,7 @@ export function renderDetailsScreen({ container, params }) {
           el('h2', { class: 'game-card__title', text: game.name }),
           el('p', {
             class: 'game-card__meta',
-            text: formatPlayersRange(game.minPlayers, game.maxPlayers),
+            text: `Zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}`,
           }),
         ]),
       ]),
@@ -38,7 +38,7 @@ export function renderDetailsScreen({ container, params }) {
     ]),
 
     el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: `Gracze (${formatPlayersCount(playerNames.length)})` }),
+      el('h2', { class: 'panel__title', text: `Gracze: ${playerNames.length}` }),
       playerNames.length > 0
         ? el(
             'ul',
@@ -52,7 +52,7 @@ export function renderDetailsScreen({ container, params }) {
         ? null
         : el('p', {
             class: 'form-error',
-            text: `Ta gra wymaga od ${game.minPlayers} do ${game.maxPlayers} graczy.`,
+            text: `Wymagany zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}.`,
           }),
     ]),
 
@@ -67,7 +67,7 @@ export function renderDetailsScreen({ container, params }) {
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Zmień liczbę graczy i imiona',
+      text: 'Zmień graczy',
       onClick: () => navigate('players', { gameId: game.id }, { replace: true }),
     }),
   );
