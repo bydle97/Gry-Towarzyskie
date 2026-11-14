@@ -1,0 +1,142 @@
+/**
+ * KONTRAKT GRY — wspólny format, który musi spełniać każda gra w HUB-ie.
+ *
+ * Każda gra to zwykły obiekt (zwykle eksport z `www/js/games/<id>/index.js`) z polami:
+ *
+ *   id          {string}   unikalny identyfikator: małe litery, cyfry i myślniki, np. "example"
+ *   name        {string}   nazwa widoczna w interfejsie, np. "Przykład"
+ *   description {string}   krótki opis (1–2 zdania) pokazywany na karcie i w szczegółach
+ *   icon        {string}   emoji zamiast pliku graficznego (działa offline, bez zależności)
+ *   minPlayers  {number}   minimalna liczba graczy (liczba całkowita >= 1)
+ *   maxPlayers  {number}   maksymalna liczba graczy (liczba całkowita >= minPlayers)
+ *   mount(container, players, api)  uruchamia grę
+ *   unmount()                       sprząta po grze (timery, nasłuchy zdarzeń)
+ *
+ * Parametry funkcji mount:
+ *   container {HTMLElement} pusty element, w którym gra rysuje swój interfejs.
+ *                           Gra nie tworzy własnego <body> ani nie zmienia stylów globalnych.
+ *   players   {string[]}    imiona graczy w kolejności z ekranu konfiguracji.
+ *                           Indeks w tablicy jest identyfikatorem gracza w grze i nie zmienia
+ *                           się przez całą rozgrywkę.
+ *   api       {GameApi}     wspólne komponenty HUB-a (opisane niżej), żeby gry nie duplikowały UI.
+ *
+ * Zasady dla gier:
+ *  - zero sieci: brak fetch/XHR/CDN, brak zewnętrznych fontów i obrazków,
+ *  - brak zapisu danych na dysku (localStorage, sessionStorage, IndexedDB) — stan żyje w pamięci,
+ *  - po wywołaniu unmount() nie może zostać żaden aktywny timer ani nasłuch zdarzeń,
+ *  - teksty w interfejsie po polsku, identyfikatory w kodzie po angielsku.
+ */
+
+/** Dozwolony format identyfikatora gry, np. "example", "mafia", "rewolwer-2". */
+export const GAME_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Uchwyt elementu odsłanianego po przytrzymaniu przycisku.
+ * @typedef {Object} HoldToRevealHandle
+ * @property {HTMLElement} el      gotowy element do wstawienia w interfejs gry
+ * @property {() => void} destroy  usuwa nasłuchy zdarzeń (wywołać przy sprzątaniu)
+ */
+
+/**
+ * Uchwyt prostego licznika czasu.
+ * @typedef {Object} TimerHandle
+ * @property {HTMLElement} el      gotowy element licznika do wstawienia w interfejs gry
+ * @property {() => void} start    uruchamia odliczanie
+ * @property {() => void} pause    zatrzymuje odliczanie
+ * @property {() => void} reset    przywraca wartość początkową
+ * @property {() => void} destroy  zatrzymuje licznik i usuwa nasłuchy
+ */
+
+/**
+ * Wspólne komponenty HUB-a przekazywane grze w funkcji mount.
+ * @typedef {Object} GameApi
+ * @property {(options?: {title?: string, message?: string}) => Promise<void>} passPhone
+ *   Ekran "Podaj telefon dalej" — zasłania poprzednią informację i czeka na kliknięcie.
+ * @property {(options: {content: Node|string, hint?: string, holdMs?: number}) => HoldToRevealHandle} holdToReveal
+ *   Treść widoczna wyłącznie podczas przytrzymania przycisku (odsłanianie roli/karty).
+ * @property {(options?: {seconds?: number, onTick?: (left: number) => void, onFinish?: () => void}) => TimerHandle} timer
+ *   Prosty licznik czasu (odliczanie w dół, start/pause/reset).
+ * @property {(roleList: string[], playerCount: number) => string[]} shuffleRoles
+ *   Losuje role: tasuje kopię listy ról i zwraca dokładnie `playerCount` pozycji
+ *   (lista ról musi mieć co najmniej tyle pozycji, inaczej funkcja rzuca błąd).
+ * @property {() => void} exit
+ *   Kończy grę i wraca do ekranu szczegółów (HUB sam wywoła unmount).
+ */
+
+/**
+ * Definicja gry — pełny kształt obiektu wymagany przez rejestr gier.
+ * @typedef {Object} GameDefinition
+ * @property {string} id
+ * @property {string} name
+ * @property {string} description
+ * @property {string} icon
+ * @property {number} minPlayers
+ * @property {number} maxPlayers
+ * @property {(container: HTMLElement, players: string[], api: GameApi) => void} mount
+ * @property {() => void} unmount
+ */
+
+/**
+ * Sprawdza, czy przekazany obiekt spełnia kontrakt gry.
+ * Nie rzuca wyjątku — zwraca listę błędów, więc nadaje się też do diagnostyki w konsoli.
+ * @param {unknown} game
+ * @returns {string[]} komunikaty po polsku; pusta tablica oznacza poprawną grę
+ */
+export function validateGame(game) {
+  if (game === null || typeof game !== 'object') {
+    return ['Gra musi być obiektem.'];
+  }
+
+  const errors = [];
+
+  if (typeof game.id !== 'string' || !GAME_ID_PATTERN.test(game.id)) {
+    errors.push('Pole "id" musi składać się z małych liter, cyfr i myślników, np. "example".');
+  }
+  if (typeof game.name !== 'string' || game.name.trim() === '') {
+    errors.push('Pole "name" musi być niepustym tekstem.');
+  }
+  if (typeof game.description !== 'string' || game.description.trim() === '') {
+    errors.push('Pole "description" musi być niepustym tekstem.');
+  }
+  if (typeof game.icon !== 'string' || game.icon.trim() === '') {
+    errors.push('Pole "icon" musi zawierać emoji, np. "🎲".');
+  }
+  if (!Number.isInteger(game.minPlayers) || game.minPlayers < 1) {
+    errors.push('Pole "minPlayers" musi być liczbą całkowitą większą lub równą 1.');
+  }
+  if (!Number.isInteger(game.maxPlayers) || game.maxPlayers < 1) {
+    errors.push('Pole "maxPlayers" musi być liczbą całkowitą większą lub równą 1.');
+  }
+  if (
+    Number.isInteger(game.minPlayers) &&
+    Number.isInteger(game.maxPlayers) &&
+    game.maxPlayers < game.minPlayers
+  ) {
+    errors.push('Pole "maxPlayers" nie może być mniejsze od "minPlayers".');
+  }
+  if (typeof game.mount !== 'function') {
+    errors.push('Pole "mount" musi być funkcją mount(container, players, api).');
+  }
+  if (typeof game.unmount !== 'function') {
+    errors.push('Pole "unmount" musi być funkcją bez argumentów.');
+  }
+
+  return errors;
+}
+
+/**
+ * Waliduje i zamraża definicję gry.
+ * Rzuca polski błąd, gdy gra łamie kontrakt — dzięki temu literówka w polach gry
+ * jest widoczna od razu po uruchomieniu HUB-a, a nie dopiero w trakcie rozgrywki.
+ * @param {import('./game-contract.js').GameDefinition} game
+ * @returns {Readonly<import('./game-contract.js').GameDefinition>}
+ */
+export function defineGame(game) {
+  const errors = validateGame(game);
+
+  if (errors.length > 0) {
+    throw new Error(`Nieprawidłowa definicja gry: ${errors.join(' ')}`);
+  }
+
+  return Object.freeze({ ...game });
+}

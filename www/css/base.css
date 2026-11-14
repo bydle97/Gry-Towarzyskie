@@ -1,0 +1,117 @@
+/* Reset i podstawy typografii. Zero zewnętrznych fontów — wyłącznie font systemowy. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+:root {
+  color-scheme: dark;
+
+  --color-bg: #0d1120;
+  --color-bg-soft: #141a2e;
+  --color-surface: #1a2136;
+  --color-surface-strong: #232c46;
+  --color-border: #2e3852;
+  --color-text: #f3f5fc;
+  --color-text-muted: #a7b0c8;
+  --color-accent: #ffb347;
+  --color-accent-strong: #ffc76b;
+  --color-on-accent: #201506;
+  --color-danger: #ff7a7a;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --font-stack: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Minimalny, wygodny na telefonie rozmiar celu dotyku. */
+  --tap-size: 52px;
+}
+
+body {
+  min-height: 100dvh;
+  background-color: var(--color-bg);
+  background-image: radial-gradient(120% 70% at 50% 0%, #1d2745 0%, var(--color-bg) 65%);
+  background-repeat: no-repeat;
+  color: var(--color-text);
+  font-family: var(--font-stack);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.noscript {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
