@@ -32,9 +32,13 @@ export const MIN_TEAM_SIZE = 2;
  *   container: HTMLElement,
  *   players: string[],
  *   onConfirm: (teams: {first: string[], second: string[]}) => void,
+ *   minTeamSize?: number,
  * }} options
+ *   minTeamSize — ile osób musi mieć każda drużyna, żeby zacząć.
+ *   Domyślnie MIN_TEAM_SIZE (2), tak jak w Rewolwerze; Pojedynek dopuszcza 1,
+ *   bo to gra jeden na jednego.
  */
-export function mountTeamSetup({ container, players, onConfirm }) {
+export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MIN_TEAM_SIZE }) {
   /** @type {{first: string[], second: string[]}} */
   const teams = { first: [], second: [] };
 
@@ -70,7 +74,18 @@ export function mountTeamSetup({ container, players, onConfirm }) {
   }
 
   function canStart() {
-    return teams.first.length >= MIN_TEAM_SIZE && teams.second.length >= MIN_TEAM_SIZE;
+    return teams.first.length >= minTeamSize && teams.second.length >= minTeamSize;
+  }
+
+  /** Poprawna forma liczebnika w komunikacie o minimum w drużynie. */
+  function getMinimumLabel() {
+    if (minTeamSize === 1) {
+      return '1 osobę';
+    }
+    if (minTeamSize >= 2 && minTeamSize <= 4) {
+      return `${minTeamSize} osoby`;
+    }
+    return `${minTeamSize} osób`;
   }
 
   function render() {
@@ -143,7 +158,7 @@ export function mountTeamSetup({ container, players, onConfirm }) {
       messages.push(
         el('p', {
           class: 'form-error',
-          text: `Każda drużyna musi mieć co najmniej ${MIN_TEAM_SIZE} osoby.`,
+          text: `Każda drużyna musi mieć co najmniej ${getMinimumLabel()}.`,
         }),
       );
     } else if (teams.first.length !== teams.second.length) {

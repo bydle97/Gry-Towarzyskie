@@ -94,7 +94,7 @@ const game = {
   name: 'Pojedynek',
   description: 'Jedna kategoria, dwóch rywali i zegar jak w szachach.',
   icon: '⏱️',
-  minPlayers: 4,
+  minPlayers: 2,
   maxPlayers: 20,
 
   /**
@@ -307,6 +307,8 @@ function renderTeamsPhase() {
     container: setupRoot,
     players: state.players,
     onConfirm: startMatch,
+    // Pojedynek to gra 1 na 1, więc drużyna może liczyć jedną osobę.
+    minTeamSize: 1,
   });
 
   state.container.append(createExitFooter(requestExit));
