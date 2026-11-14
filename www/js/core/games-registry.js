@@ -18,12 +18,14 @@ import { defineGame } from './game-contract.js';
 // import exampleGame from '../games/example/index.js';
 import guessNumberGame from '../games/guess-number/index.js';
 import revolverGame from '../games/revolver/index.js';
+import duelGame from '../games/duel/index.js';
 
 // --- LISTA GIER -------------------------------------------------------------
 // Kolejność na liście = kolejność kart na ekranie głównym.
 const RAW_GAMES = [
   guessNumberGame,
   revolverGame,
+  duelGame,
 ];
 
 const seenIds = new Set();

@@ -338,10 +338,12 @@
 /* Kolory drużyn; nazwa i ikona drużyny są w treści, kolor tylko wspiera odbiór. */
 .team--first {
   --team-color: #6ea8ff;
+  --team-tint: #1b2f4d;
 }
 
 .team--second {
   --team-color: #ff9f5a;
+  --team-tint: #3a2a1c;
 }
 
 .team-column {
