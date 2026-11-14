@@ -73,6 +73,26 @@ const STYLES = `
   font-variant-numeric: tabular-nums;
 }
 
+/* Pole liczby z jednostką dopisaną na końcu (np. "___ jaj"). */
+.gn-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gn-input-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.gn-input-unit {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 .gn-answer {
   align-items: center;
   text-align: center;
@@ -266,6 +286,7 @@ export function renderTurnScreen({
 
   const inputId = 'guess-number-input';
   const errorId = 'guess-number-error';
+  const unitId = 'guess-number-unit';
 
   const input = el('input', {
     class: 'input gn-input',
@@ -274,10 +295,15 @@ export function renderTurnScreen({
     inputMode: 'numeric',
     autocomplete: 'off',
     maxLength: 9,
-    placeholder: 'np. 300',
-    'aria-describedby': errorId,
+    'aria-describedby': question.unit ? `${errorId} ${unitId}` : errorId,
   });
   const errorBox = el('p', { class: 'form-error', id: errorId, role: 'alert', hidden: true });
+
+  // Jednostka dopisana na końcu pola liczby — tylko wtedy, gdy pytanie jej wymaga.
+  const inputRow = el('div', { class: 'gn-input-row' }, [
+    input,
+    question.unit ? el('span', { class: 'gn-input-unit', id: unitId, text: question.unit }) : null,
+  ]);
 
   screen.append(
     el(
@@ -295,7 +321,7 @@ export function renderTurnScreen({
             return;
           }
           if (!/^[+-]?\d+$/.test(rawValue)) {
-            showError(errorBox, 'Podaj liczbę całkowitą, np. 300.');
+            showError(errorBox, 'Podaj liczbę całkowitą.');
             input.focus();
             return;
           }
@@ -313,12 +339,8 @@ export function renderTurnScreen({
       },
       [
         el('div', { class: 'field' }, [
-          el('label', {
-            class: 'field__label',
-            for: inputId,
-            text: question.unit ? `Twoja liczba (${question.unit})` : 'Twoja liczba',
-          }),
-          input,
+          el('label', { class: 'field__label', for: inputId, text: 'Twoja liczba' }),
+          inputRow,
         ]),
         errorBox,
         el('button', {

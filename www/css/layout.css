@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 560px;
+  max-width: 600px;
   min-height: 100dvh;
   margin-inline: auto;
 }
@@ -73,4 +73,52 @@
   .game-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* --- Ekran główny: tytuł i sekcje ----------------------------------------- */
+
+.home-hero {
+  padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) 0 var(--space-2);
+  text-align: center;
+}
+
+/* Największy tekst w aplikacji — tytuł aplikacji. */
+.home-title {
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.home-subtitle {
+  margin-top: var(--space-2);
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.home-games__title {
+  margin-bottom: var(--space-3);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/*
+ * Lista graczy: zwarte wiersze i ograniczona wysokość, żeby przy 10–20 osobach
+ * sekcja "Gry" pozostawała widoczna. overscroll-behavior zatrzymuje przewijanie
+ * strony, gdy palec pracuje wewnątrz listy.
+ */
+.player-list-editor__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 45vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.player-list-editor__empty {
+  padding: var(--space-2) 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  text-align: center;
 }

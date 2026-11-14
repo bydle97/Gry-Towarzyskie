@@ -1,10 +1,13 @@
 /**
- * Pierwszy ekran aplikacji: lista graczy sesji.
- * Graczy dodajemy, edytujemy i usuwamy w pamięci (js/core/session.js) — bez zapisu na dysku.
- * Ta sama lista trafia potem do każdej gry w mount(container, players, api).
+ * Komponent edytora listy graczy (sekcja "Lista graczy" na ekranie głównym).
+ *
+ * Gracze żyją wyłącznie w pamięci sesji (core/session.js) — nic nie trafia na dysk.
+ * Komponent sam zarządza swoim fragmentem DOM-u i po każdej zmianie listy woła
+ * onChange(names), żeby ekran mógł odświeżyć elementy zależne (np. karty gier).
+ * Ekran główny przerysowuje wtedy tylko sekcję gier, więc pole imienia zachowuje
+ * focus i można dodawać kolejne osoby bez zamykania klawiatury.
  */
 import { clear, el } from '../core/dom.js';
-import { navigate } from '../core/router.js';
 import {
   PLAYER_NAME_MAX_LENGTH,
   addPlayerName,
@@ -13,13 +16,11 @@ import {
   updatePlayerName,
 } from '../core/session.js';
 
-/** Ilu graczy potrzeba, aby przejść do listy gier. */
-const MIN_PLAYERS_TO_CONTINUE = 2;
-
 /**
- * @param {{container: HTMLElement}} context
+ * Montuje edytor listy graczy w podanym kontenerze.
+ * @param {{container: HTMLElement, onChange?: (names: string[]) => void}} options
  */
-export function renderPlayersScreen({ container }) {
+export function mountPlayerListEditor({ container, onChange }) {
   const view = {
     editingIndex: -1,
     draftName: '',
@@ -29,20 +30,24 @@ export function renderPlayersScreen({ container }) {
     focusEdit: false,
   };
 
+  render();
+
+  function notifyChange() {
+    if (typeof onChange === 'function') {
+      onChange(getPlayerNames());
+    }
+  }
+
   function render() {
     clear(container);
 
     const players = getPlayerNames();
 
     container.append(
-      el('p', {
-        class: 'screen__intro',
-        text: 'Dodaj graczy, a potem wybierz grę. Lista żyje tylko w pamięci aplikacji.',
-      }),
+      el('h2', { class: 'panel__title', text: `Lista graczy: ${players.length}` }),
       createAddForm(),
       createErrorBox(),
-      createPlayersPanel(players),
-      createFooter(players),
+      createList(players),
     );
 
     if (view.focusAdd) {
@@ -58,7 +63,7 @@ export function renderPlayersScreen({ container }) {
     return el(
       'form',
       {
-        class: 'panel',
+        class: 'player-form',
         novalidate: true,
         onSubmit: (event) => {
           event.preventDefault();
@@ -66,7 +71,11 @@ export function renderPlayersScreen({ container }) {
         },
       },
       [
-        el('label', { class: 'field__label', for: 'player-name-input', text: 'Nowy gracz' }),
+        el('label', {
+          class: 'visually-hidden',
+          for: 'player-name-input',
+          text: 'Imię gracza',
+        }),
         el('div', { class: 'row' }, [
           el('input', {
             class: 'input',
@@ -82,10 +91,6 @@ export function renderPlayersScreen({ container }) {
           }),
           el('button', { class: 'button button--primary', type: 'submit', text: 'Dodaj' }),
         ]),
-        el('p', {
-          class: 'stepper__hint',
-          text: `Maksymalnie ${PLAYER_NAME_MAX_LENGTH} znaków, bez powtórzeń.`,
-        }),
       ],
     );
   }
@@ -99,23 +104,24 @@ export function renderPlayersScreen({ container }) {
     });
   }
 
-  function createPlayersPanel(players) {
-    const rows =
-      players.length === 0
-        ? [el('p', { class: 'stepper__hint', text: 'Lista jest pusta. Dodaj pierwszego gracza.' })]
-        : players.map((name, index) =>
-            view.editingIndex === index ? createEditRow(index) : createPlayerRow(name, index),
-          );
+  function createList(players) {
+    if (players.length === 0) {
+      return el('p', {
+        class: 'player-list-editor__empty',
+        text: 'Dodaj graczy, aby odblokować gry.',
+      });
+    }
 
-    return el('div', { class: 'panel' }, [
-      el('h2', {
-        class: 'panel__title',
-        text: `Lista graczy: ${players.length}`,
-      }),
-      el('div', { class: 'stack' }, rows),
-    ]);
+    return el(
+      'ul',
+      { class: 'player-list-editor__list' },
+      players.map((name, index) =>
+        el('li', {}, [
+          view.editingIndex === index ? createEditRow(index) : createPlayerRow(name, index),
+        ]),
+      ),
+    );
   }
-
 
   function createPlayerRow(name, index) {
     return el('div', { class: 'player-row' }, [
@@ -185,26 +191,6 @@ export function renderPlayersScreen({ container }) {
     );
   }
 
-  function createFooter(players) {
-    const canContinue = players.length >= MIN_PLAYERS_TO_CONTINUE;
-
-    return el('div', { class: 'stack' }, [
-      canContinue
-        ? null
-        : el('p', {
-            class: 'stepper__hint',
-            text: `Minimalna liczba graczy do przejścia dalej: ${MIN_PLAYERS_TO_CONTINUE}.`,
-          }),
-      el('button', {
-        class: 'button button--primary button--block',
-        type: 'button',
-        text: 'Dalej: wybierz grę',
-        disabled: !canContinue,
-        onClick: () => navigate('home', {}, { replace: true }),
-      }),
-    ]);
-  }
-
   function handleAdd() {
     const result = addPlayerName(view.draftName);
 
@@ -219,6 +205,7 @@ export function renderPlayersScreen({ container }) {
     view.error = '';
     view.focusAdd = true;
     render();
+    notifyChange();
   }
 
   function startEdit(index) {
@@ -250,6 +237,7 @@ export function renderPlayersScreen({ container }) {
     view.editDraft = '';
     view.error = '';
     render();
+    notifyChange();
   }
 
   function handleRemove(index) {
@@ -263,7 +251,6 @@ export function renderPlayersScreen({ container }) {
     removePlayerName(index);
     view.error = '';
     render();
+    notifyChange();
   }
-
-  render();
 }

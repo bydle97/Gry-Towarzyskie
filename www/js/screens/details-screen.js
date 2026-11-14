@@ -67,8 +67,8 @@ export function renderDetailsScreen({ container, params }) {
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Zmień graczy',
-      onClick: () => navigate('players', { gameId: game.id }, { replace: true }),
+      text: 'Wróć do listy graczy',
+      onClick: () => navigate('home', {}, { reset: true }),
     }),
   );
 }

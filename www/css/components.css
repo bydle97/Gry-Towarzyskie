@@ -68,6 +68,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background-image: linear-gradient(160deg, var(--color-surface) 0%, var(--color-bg-soft) 100%);
+  box-shadow: 0 8px 22px rgba(3, 6, 15, 0.24);
   transition: transform 120ms ease, border-color 120ms ease;
 }
 
@@ -117,6 +118,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-bg-soft);
+  box-shadow: 0 10px 26px rgba(3, 6, 15, 0.26);
 }
 
 .panel__title {
@@ -231,8 +233,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
@@ -271,8 +273,8 @@
 
 .button--compact {
   min-height: 44px;
-  padding: var(--space-1) var(--space-3);
-  font-size: 0.9rem;
+  padding: 0 var(--space-2);
+  font-size: 0.85rem;
 }
 
 /* Pole formularza w rzędzie (np. "Nowy gracz" + przycisk "Dodaj"). */
@@ -281,19 +283,34 @@
   min-width: 0;
 }
 
-/* Karta gry niedostępnej dla aktualnej liczby graczy. */
+/*
+ * Karta gry niedostępnej dla aktualnej liczby graczy: prawdziwy atrybut disabled
+ * (ustawiany w JS) + wyraźnie inny wygląd. Komunikat o powodzie pozostaje w pełni
+ * czytelny — nie wygaszamy go razem z resztą karty.
+ */
 .game-card--disabled {
   cursor: not-allowed;
+  border-style: dashed;
+  background-image: none;
+  background-color: var(--color-bg-soft);
+  box-shadow: none;
 }
 
 .game-card--disabled:active {
   transform: none;
 }
 
-.game-card--disabled .game-card__icon,
+.game-card--disabled .game-card__icon {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
 .game-card--disabled .game-card__title,
 .game-card--disabled .game-card__desc,
-.game-card--disabled .game-card__meta,
+.game-card--disabled .game-card__meta {
+  opacity: 0.6;
+}
+
 .game-card--disabled .game-card__chevron {
   opacity: 0.5;
 }
@@ -302,6 +319,12 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-danger);
+}
+
+.game-card__lock {
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 /* --- Drużyny (współdzielone przez gry drużynowe) --------------------------- */

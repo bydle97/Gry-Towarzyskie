@@ -8,7 +8,7 @@
  */
 import { clear, el } from './dom.js';
 
-/** @type {Map<string, {title: string|((params: Object) => string), render: Function}>} */
+/** @type {Map<string, {title: string|((params: Object) => string), render: Function, hideHeader: boolean}>} */
 const screens = new Map();
 
 /** @type {Array<{name: string, params: Object}>} */
@@ -20,10 +20,15 @@ let currentCleanup = null;
 
 /**
  * Podłącza router do elementów szkieletu z index.html.
- * @param {{container: HTMLElement, titleElement: HTMLElement, backButton: HTMLButtonElement}} elements
+ * @param {{
+ *   container: HTMLElement,
+ *   titleElement: HTMLElement,
+ *   backButton: HTMLButtonElement,
+ *   header?: HTMLElement,
+ * }} elements
  */
-export function initRouter({ container, titleElement, backButton }) {
-  shell = { container, titleElement, backButton };
+export function initRouter({ container, titleElement, backButton, header = null }) {
+  shell = { container, titleElement, backButton, header };
   backButton.addEventListener('click', () => {
     back();
   });
@@ -32,7 +37,12 @@ export function initRouter({ container, titleElement, backButton }) {
 /**
  * Rejestruje ekran.
  * @param {string} name nazwa ekranu, np. "home"
- * @param {{title?: string|((params: Object) => string), render: Function}} definition
+ * @param {{
+ *   title?: string|((params: Object) => string),
+ *   render: Function,
+ *   hideHeader?: boolean,
+ * }} definition
+ *   hideHeader — ekran ukrywa nagłówek aplikacji (np. ekran główny z własnym tytułem)
  */
 export function registerScreen(name, definition) {
   if (typeof definition?.render !== 'function') {
@@ -41,6 +51,7 @@ export function registerScreen(name, definition) {
   screens.set(name, {
     title: definition.title ?? '',
     render: definition.render,
+    hideHeader: definition.hideHeader === true,
   });
 }
 
@@ -100,6 +111,9 @@ function renderRoute(route) {
   const screen = screens.get(route.name);
   shell.titleElement.textContent = resolveTitle(screen, route.params);
   shell.backButton.hidden = historyStack.length === 0;
+  if (shell.header) {
+    shell.header.hidden = screen?.hideHeader === true;
+  }
 
   if (!screen) {
     renderMissingScreen(screenElement, route.name);
