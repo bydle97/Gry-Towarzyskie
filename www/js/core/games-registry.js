@@ -19,6 +19,7 @@ import { defineGame } from './game-contract.js';
 import guessNumberGame from '../games/guess-number/index.js';
 import revolverGame from '../games/revolver/index.js';
 import duelGame from '../games/duel/index.js';
+import sectGame from '../games/sect/index.js';
 
 // --- LISTA GIER -------------------------------------------------------------
 // Kolejność na liście = kolejność kart na ekranie głównym.
@@ -26,6 +27,7 @@ const RAW_GAMES = [
   guessNumberGame,
   revolverGame,
   duelGame,
+  sectGame,
 ];
 
 const seenIds = new Set();
