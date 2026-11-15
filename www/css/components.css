@@ -6,6 +6,7 @@
   justify-content: center;
   gap: var(--space-2);
   min-height: var(--tap-size);
+  max-width: 100%;
   padding: var(--space-3) var(--space-5);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -14,6 +15,8 @@
   font-size: 1rem;
   font-weight: 600;
   text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
   transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
 
@@ -275,6 +278,31 @@
   min-height: 44px;
   padding: 0 var(--space-2);
   font-size: 0.85rem;
+}
+
+/* --- Przełącznik języka ---------------------------------------------------- */
+
+.language-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.language-switcher__label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.language-switcher__select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
 }
 
 /* Pole formularza w rzędzie (np. "Nowy gracz" + przycisk "Dodaj"). */

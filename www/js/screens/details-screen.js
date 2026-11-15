@@ -4,6 +4,7 @@
  * Start prowadzi do ekranu rozgrywki (rejestrowanego razem z grami).
  */
 import { el } from '../core/dom.js';
+import { formatNumber, t } from '../core/i18n.js';
 import { formatPlayersRange } from '../core/format.js';
 import { getGameById } from '../core/games-registry.js';
 import { navigate } from '../core/router.js';
@@ -31,7 +32,9 @@ export function renderDetailsScreen({ container, params }) {
         ? null
         : el('p', {
             class: 'form-error',
-            text: `Wymagany zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}.`,
+            text: t('details.playersRequired', {
+              range: formatPlayersRange(game.minPlayers, game.maxPlayers),
+            }),
           }),
       createActions(game, playersOk),
     ]),
@@ -51,11 +54,13 @@ function createHeader(game, playersCount) {
     el('div', { class: 'details__badges' }, [
       el('span', {
         class: 'details__badge',
-        text: `Zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}`,
+        text: t('details.playersRange', {
+          range: formatPlayersRange(game.minPlayers, game.maxPlayers),
+        }),
       }),
       el('span', {
         class: 'details__badge details__badge--count',
-        text: `Gracze: ${playersCount}`,
+        text: t('details.playersCount', { count: formatNumber(playersCount) }),
       }),
     ]),
   ]);
@@ -72,7 +77,7 @@ function createInstruction(game) {
   if (!howToPlay) {
     return [
       el('section', { class: 'panel' }, [
-        el('h3', { class: 'details__section-title', text: 'O grze' }),
+        el('h3', { class: 'details__section-title', text: t('details.about') }),
         el('p', { class: 'details__goal', text: game.description }),
       ]),
     ];
@@ -80,11 +85,11 @@ function createInstruction(game) {
 
   const sections = [
     el('section', { class: 'panel' }, [
-      el('h3', { class: 'details__section-title', text: 'Cel gry' }),
+      el('h3', { class: 'details__section-title', text: t('details.goal') }),
       el('p', { class: 'details__goal', text: howToPlay.goal }),
     ]),
     el('section', { class: 'panel' }, [
-      el('h3', { class: 'details__section-title', text: 'Jak grać' }),
+      el('h3', { class: 'details__section-title', text: t('details.howToPlay') }),
       el(
         'ol',
         { class: 'details__steps' },
@@ -98,7 +103,7 @@ function createInstruction(game) {
   if (Array.isArray(howToPlay.tips) && howToPlay.tips.length > 0) {
     sections.push(
       el('section', { class: 'panel' }, [
-        el('h3', { class: 'details__section-title', text: 'Wskazówki' }),
+        el('h3', { class: 'details__section-title', text: t('details.tips') }),
         el(
           'ul',
           { class: 'details__tips' },
@@ -124,14 +129,14 @@ function createActions(game, playersOk) {
     el('button', {
       class: 'button button--primary button--block details__start',
       type: 'button',
-      text: 'Start',
+      text: t('details.start'),
       disabled: !playersOk,
       onClick: () => navigate('game', { gameId: game.id }),
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Wróć do listy graczy',
+      text: t('details.backToPlayers'),
       onClick: () => navigate('home', {}, { reset: true }),
     }),
   ]);
@@ -140,12 +145,12 @@ function createActions(game, playersOk) {
 function createMissingGameBox() {
   return el('div', { class: 'empty-state' }, [
     el('span', { class: 'empty-state__icon', 'aria-hidden': 'true', text: '❓' }),
-    el('p', { class: 'empty-state__title', text: 'Nie znaleziono gry' }),
-    el('p', { text: 'Ta gra nie istnieje w rejestrze gier.' }),
+    el('p', { class: 'empty-state__title', text: t('details.missingTitle') }),
+    el('p', { text: t('details.missingText') }),
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Wróć do listy gier',
+      text: t('details.backToGames'),
       onClick: () => navigate('home', {}, { reset: true }),
     }),
   ]);

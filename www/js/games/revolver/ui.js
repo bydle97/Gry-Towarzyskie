@@ -7,6 +7,7 @@
  * .team--first / .team--second (components/team-setup.js + components.css).
  */
 import { el } from '../../core/dom.js';
+import { formatNumber, t } from '../../core/i18n.js';
 import { TEAMS } from '../../components/team-setup.js';
 
 const STYLE_ELEMENT_ID = 'revolver-styles';
@@ -165,7 +166,7 @@ export function createExitFooter(onRequestExit) {
   return el('button', {
     class: 'button button--secondary button--block',
     type: 'button',
-    text: 'Zakończ grę i wróć do HUB-a',
+    text: t('games.revolver.exitFooter'),
     onClick: onRequestExit,
   });
 }
@@ -186,7 +187,7 @@ function createScoreBoard(scores) {
     TEAMS.map((team) =>
       el('div', { class: `rv-score__item ${team.className}` }, [
         el('span', { class: 'rv-score__team', text: `${team.icon} ${team.name}` }),
-        el('span', { class: 'rv-score__value', text: String(scores[team.id]) }),
+        el('span', { class: 'rv-score__value', text: formatNumber(scores[team.id]) }),
       ]),
     ),
   );
@@ -202,7 +203,7 @@ function createTeamsSummary(teams) {
         el('div', { class: 'team-column__header' }, [
           el('span', { class: 'team-column__icon', 'aria-hidden': 'true', text: team.icon }),
           el('span', { class: 'team-column__name', text: team.name }),
-          el('span', { class: 'team-column__count', text: `${teams[team.id].length}` }),
+          el('span', { class: 'team-column__count', text: formatNumber(teams[team.id].length) }),
         ]),
         el(
           'ul',
@@ -226,20 +227,26 @@ function createTeamsSummary(teams) {
  */
 export function renderRoundIntroScreen({ roundNumber, totalRounds, explainers, onReveal }) {
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'rv-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
+    el('p', {
+      class: 'rv-progress',
+      text: t('games.revolver.progress', {
+        current: formatNumber(roundNumber),
+        total: formatNumber(totalRounds),
+      }),
+    }),
 
     el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: 'Podaj telefon dalej' }),
-      el('p', { class: 'rv-hint', text: 'Tłumaczą:' }),
+      el('h2', { class: 'panel__title', text: t('games.revolver.introTitle') }),
+      el('p', { class: 'rv-hint', text: t('games.revolver.explainers') }),
       createTeamLine(TEAMS[0], `${TEAMS[0].name}: ${explainers.first}`),
       createTeamLine(TEAMS[1], `${TEAMS[1].name}: ${explainers.second}`),
-      el('p', { class: 'rv-hint', text: 'Reszta niech odwróci wzrok.' }),
+      el('p', { class: 'rv-hint', text: t('games.revolver.lookAway') }),
     ]),
 
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Pokaż hasło',
+      text: t('games.revolver.revealWord'),
       onClick: onReveal,
     }),
   ]);
@@ -273,17 +280,23 @@ export function renderWordScreen({
 }) {
   const redrawLimitReached = redrawsLeft <= 0;
   const redrawLabel = redrawLimitReached
-    ? 'Brak zmian'
+    ? t('games.revolver.noRedraws')
     : canRedrawWord
-      ? 'Inne hasło'
-      : 'Brak innych';
+      ? t('games.revolver.redraw')
+      : t('games.revolver.noOther');
   const redrawDisabled = redrawLimitReached || !canRedrawWord;
 
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'rv-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
+    el('p', {
+      class: 'rv-progress',
+      text: t('games.revolver.progress', {
+        current: formatNumber(roundNumber),
+        total: formatNumber(totalRounds),
+      }),
+    }),
 
     el('div', { class: 'panel rv-word-card' }, [
-      el('p', { class: 'rv-word-label', text: 'Hasło' }),
+      el('p', { class: 'rv-word-label', text: t('games.revolver.wordLabel') }),
       el('p', { class: 'rv-word', text: word }),
     ]),
 
@@ -295,33 +308,36 @@ export function renderWordScreen({
         disabled: redrawDisabled,
         onClick: onRedrawWord,
       }),
-      el('span', { class: 'rv-redraw__count', text: `Zostało zmian: ${redrawsLeft}` }),
+      el('span', {
+        class: 'rv-redraw__count',
+        text: t('games.revolver.redrawsLeft', { count: formatNumber(redrawsLeft) }),
+      }),
     ]),
 
     el('div', { class: 'panel rv-starter' }, [
-      createTeamLine(starterTeam, `Pierwsze słowo mówi ${starterTeam.name}`),
+      createTeamLine(starterTeam, t('games.revolver.starter', { team: starterTeam.name })),
       el('p', {
         class: 'rv-hint',
-        text: 'Mówicie na zmianę po jednym słowie, aż któraś drużyna odgadnie.',
+        text: t('games.revolver.alternateHint'),
       }),
     ]),
 
     el('button', {
       class: `button button--block rv-team-button ${TEAMS[0].className}`,
       type: 'button',
-      text: `Odgadła ${TEAMS[0].name}`,
+      text: t('games.revolver.guessedTeam', { team: TEAMS[0].name }),
       onClick: () => onTeamGuessed(TEAMS[0].id),
     }),
     el('button', {
       class: `button button--block rv-team-button ${TEAMS[1].className}`,
       type: 'button',
-      text: `Odgadła ${TEAMS[1].name}`,
+      text: t('games.revolver.guessedTeam', { team: TEAMS[1].name }),
       onClick: () => onTeamGuessed(TEAMS[1].id),
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Unieważnij (0 pkt)',
+      text: t('games.revolver.cancelRound'),
       onClick: onRoundCancelled,
     }),
   ]);
@@ -348,13 +364,19 @@ export function renderRoundResultScreen({
   onNext,
 }) {
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'rv-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
+    el('p', {
+      class: 'rv-progress',
+      text: t('games.revolver.progress', {
+        current: formatNumber(roundNumber),
+        total: formatNumber(totalRounds),
+      }),
+    }),
 
     el('div', { class: 'panel rv-starter' }, [
-      el('p', { class: 'rv-word-label', text: 'Wynik rundy' }),
+      el('p', { class: 'rv-word-label', text: t('games.revolver.resultLabel') }),
       winnerTeam
-        ? createTeamLine(winnerTeam, `Rundę wygrała ${winnerTeam.name}`)
-        : el('p', { class: 'panel__title', text: 'Runda unieważniona' }),
+        ? createTeamLine(winnerTeam, t('games.revolver.roundWon', { team: winnerTeam.name }))
+        : el('p', { class: 'panel__title', text: t('games.revolver.roundCancelled') }),
     ]),
 
     createScoreBoard(scores),
@@ -362,7 +384,7 @@ export function renderRoundResultScreen({
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: isLastRound ? 'Pokaż wynik' : 'Następna runda',
+      text: isLastRound ? t('games.revolver.showResult') : t('games.revolver.nextRound'),
       onClick: onNext,
     }),
   ]);
@@ -383,13 +405,16 @@ export function renderRoundResultScreen({
 export function renderFinishedScreen({ teams, scores, winnerTeam, onPlayAgain, onNewTeams, onExit }) {
   return el('div', { class: 'stack' }, [
     el('div', { class: 'panel rv-starter' }, [
-      el('p', { class: 'rv-word-label', text: 'Koniec gry' }),
+      el('p', { class: 'rv-word-label', text: t('games.revolver.finishLabel') }),
       winnerTeam
         ? el('p', {
             class: `rv-final ${winnerTeam.className}`,
-            text: `${winnerTeam.icon} Wygrywa ${winnerTeam.name}`,
+            text: t('games.revolver.winningTeam', {
+              icon: winnerTeam.icon,
+              team: winnerTeam.name,
+            }),
           })
-        : el('p', { class: 'rv-final', text: 'Remis' }),
+        : el('p', { class: 'rv-final', text: t('games.revolver.draw') }),
     ]),
 
     createScoreBoard(scores),
@@ -398,19 +423,19 @@ export function renderFinishedScreen({ teams, scores, winnerTeam, onPlayAgain, o
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Jeszcze raz (te same drużyny)',
+      text: t('games.revolver.playAgain'),
       onClick: onPlayAgain,
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Nowy podział drużyn',
+      text: t('games.revolver.newTeams'),
       onClick: onNewTeams,
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Wróć do HUB-a',
+      text: t('games.revolver.backToHub'),
       onClick: onExit,
     }),
   ]);
@@ -432,21 +457,25 @@ export function renderExitDialog({ onConfirm, onCancel }) {
         'aria-labelledby': 'rv-dialog-title',
       },
       [
-        el('h2', { class: 'panel__title', id: 'rv-dialog-title', text: 'Zakończyć grę?' }),
+        el('h2', {
+          class: 'panel__title',
+          id: 'rv-dialog-title',
+          text: t('games.revolver.exitTitle'),
+        }),
         el('p', {
           class: 'rv-hint',
-          text: 'Wrócisz do HUB-a, a bieżąca rozgrywka przepadnie — wyniki nie są zapisywane.',
+          text: t('games.revolver.exitMessage'),
         }),
         el('button', {
           class: 'button button--primary button--block',
           type: 'button',
-          text: 'Tak, zakończ grę',
+          text: t('games.revolver.exitConfirm'),
           onClick: onConfirm,
         }),
         el('button', {
           class: 'button button--secondary button--block',
           type: 'button',
-          text: 'Zostań w grze',
+          text: t('games.revolver.exitCancel'),
           onClick: onCancel,
         }),
       ],

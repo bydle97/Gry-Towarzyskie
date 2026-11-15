@@ -1,0 +1,33 @@
+# Questions for the game "Ballpark".
+#
+# How to add a question: add one line in this format:
+#   Question | answer | unit
+# - the answer must be a whole number (it may be negative),
+# - the unit is optional, e.g. "eggs", "km"; you can leave it out,
+# - the question MUST NOT contain the | character (it separates the fields),
+# - spaces around the | character are ignored,
+# - empty lines and lines starting with # are ignored,
+# - duplicates (case-insensitive) are skipped,
+# - the order of lines does not matter.
+
+How many eggs does a commercial laying hen lay per year? | 300 | eggs
+In which year was the first standalone electric toaster built? | 1893
+How many islands does Norway have according to the Norwegian Mapping Authority? | 239057 | islands
+In which year was the first webcam created to watch a coffee pot at the University of Cambridge? | 1991
+In which year was the first SMS message in history sent? | 1992
+In which year was the world's first ATM installed? | 1967
+In which year did the world's first public aquarium open? | 1853
+In which year was the first modern crossword puzzle published? | 1913
+In which year was the first computer mouse prototype built? | 1964
+In which year was the computer game “Tennis for Two” first demonstrated? | 1958
+In which year was Creeper, the first computer worm, created? | 1971
+In which year was Sputnik 1, the first artificial satellite of Earth, launched? | 1957
+How many minutes did the Anglo-Zanzibar War, considered the shortest war in history, last? | 38 | minutes
+In which year was the world's first passenger steam railway opened? | 1825
+In which year was the first passenger elevator designed by Elisha Otis installed? | 1857
+In which year did Louis-Sébastien Lenormand make the first recorded public parachute jump? | 1783
+In which year was the first roller coaster on Coney Island in New York built? | 1884
+How many copies of the first postage stamp, the Penny Black, were printed? | 68808000 | copies
+How many seconds long was the first video published on YouTube, titled “Me at the zoo”? | 19 | seconds
+For how many days did Sputnik 1 transmit a radio signal after launch? | 22 | days
+How many pixels wide was the image from the first webcam in Cambridge? | 128 | pixels

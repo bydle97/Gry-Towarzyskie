@@ -7,20 +7,27 @@
  * tylko sekcję gier, a nie cały ekran.
  */
 import { clear, el } from '../core/dom.js';
+import { formatNumber, t } from '../core/i18n.js';
 import { formatPlayersRange } from '../core/format.js';
 import { getAllGames } from '../core/games-registry.js';
 import { navigate } from '../core/router.js';
 import { getPlayerNames } from '../core/session.js';
+import { createLanguageSwitcher } from '../components/language-switcher.js';
 import { mountPlayerListEditor } from '../components/player-list-editor.js';
 
 /**
  * @param {{container: HTMLElement}} context
  */
 export function renderHomeScreen({ container }) {
-  const playersRoot = el('section', { class: 'panel', 'aria-label': 'Lista graczy' });
-  const gamesRoot = el('section', { class: 'home-games', 'aria-label': 'Gry' });
+  const playersRoot = el('section', { class: 'panel', 'aria-label': t('hub.playersAria') });
+  const gamesRoot = el('section', { class: 'home-games', 'aria-label': t('hub.gamesAria') });
 
-  container.append(createHero(), playersRoot, gamesRoot);
+  container.append(
+    el('div', { class: 'home-topbar' }, [createLanguageSwitcher()]),
+    createHero(),
+    playersRoot,
+    gamesRoot,
+  );
 
   mountPlayerListEditor({
     container: playersRoot,
@@ -32,8 +39,8 @@ export function renderHomeScreen({ container }) {
 
 function createHero() {
   return el('header', { class: 'home-hero' }, [
-    el('h1', { class: 'home-title', text: 'Gry Towarzyskie' }),
-    el('p', { class: 'home-subtitle', text: 'Zabawa na jednym telefonie' }),
+    el('h1', { class: 'home-title', text: t('hub.heroTitle') }),
+    el('p', { class: 'home-subtitle', text: t('hub.heroSubtitle') }),
   ]);
 }
 
@@ -48,16 +55,14 @@ function renderGames(root, playerNames) {
 
   const games = getAllGames();
 
-  root.append(el('h2', { class: 'home-games__title', text: 'Gry' }));
+  root.append(el('h2', { class: 'home-games__title', text: t('hub.gamesTitle') }));
 
   if (games.length === 0) {
     root.append(
       el('div', { class: 'empty-state' }, [
         el('span', { class: 'empty-state__icon', 'aria-hidden': 'true', text: '🕹️' }),
-        el('p', { class: 'empty-state__title', text: 'Brak gier w rejestrze' }),
-        el('p', {
-          text: 'Dodaj folder w www/js/games/, a następnie wpisz grę do www/js/core/games-registry.js — jej karta pojawi się tutaj automatycznie.',
-        }),
+        el('p', { class: 'empty-state__title', text: t('hub.noGamesTitle') }),
+        el('p', { text: t('hub.noGamesText') }),
       ]),
     );
     return;
@@ -78,10 +83,10 @@ function renderGames(root, playerNames) {
  */
 function getPlayersRequirement(game, playersCount) {
   if (playersCount < game.minPlayers) {
-    return `Wymaga min. ${game.minPlayers} graczy`;
+    return t('hub.minPlayers', { count: formatNumber(game.minPlayers) });
   }
   if (playersCount > game.maxPlayers) {
-    return `Maks. ${game.maxPlayers} graczy`;
+    return t('hub.maxPlayers', { count: formatNumber(game.maxPlayers) });
   }
   return '';
 }
@@ -112,7 +117,9 @@ function createGameCard(game, playersCount) {
         el('span', { class: 'game-card__desc', text: game.description }),
         el('span', {
           class: 'game-card__meta',
-          text: `Zakres graczy: ${formatPlayersRange(game.minPlayers, game.maxPlayers)}`,
+          text: t('hub.playersRange', {
+            range: formatPlayersRange(game.minPlayers, game.maxPlayers),
+          }),
         }),
         isLocked ? el('span', { class: 'game-card__warning', text: requirement }) : null,
       ]),

@@ -11,6 +11,7 @@
  * Brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
 import { clear } from '../../core/dom.js';
+import { formatNumber, t } from '../../core/i18n.js';
 import { DISCUSSION_SECONDS, MIN_PLAYERS, ROLES, formatLineup, getLineup } from './config.js';
 import {
   WINNERS,
@@ -83,25 +84,23 @@ let state = null;
 
 const game = {
   id: 'sect',
-  name: 'Sekta',
-  description: 'Ukryta sekta w miasteczku. Mistrz gry prowadzi noc i dzień.',
+  nameKey: 'games.sect.name',
+  descriptionKey: 'games.sect.description',
   icon: '🕯️',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 20,
 
   howToPlay: {
-    goal: 'Mieszkańcy mają wykryć sektę, a sekta ma przejąć miasteczko.',
-    steps: [
-      'Jedna osoba zostaje mistrzem gry: nie gra, tylko trzyma telefon i prowadzi.',
-      'Każdy dotyka swojego imienia na liście i sprawdza swoją rolę. Po ukryciu roli imię się blokuje.',
-      'W nocy wszyscy zamykają oczy, a mistrz gry według scenariusza budzi sektę, lekarza i śledczego.',
-      'Rano mistrz gry ogłasza, kto zginął.',
-      'W dzień wszyscy dyskutują i wspólnie wskazują, kto odpada.',
-      'Gra trwa do wygranej sekty albo mieszkańców.',
+    goalKey: 'games.sect.goal',
+    stepKeys: [
+      'games.sect.steps.1',
+      'games.sect.steps.2',
+      'games.sect.steps.3',
+      'games.sect.steps.4',
+      'games.sect.steps.5',
+      'games.sect.steps.6',
     ],
-    tips: [
-      'Mistrz gry czyta na głos tylko teksty z bloku „Powiedz na głos”. Telefon w nocy trzymaj tak, żeby nikt nie widział ekranu.',
-    ],
+    tipKeys: ['games.sect.tips.1'],
   },
 
   /**
@@ -355,9 +354,9 @@ function askPlayer(playerId) {
   }
 
   openDialog({
-    title: `Jesteś ${player.name}?`,
-    message: 'Swoją rolę zobaczysz tylko raz.',
-    confirmLabel: 'Tak, pokaż rolę',
+    title: t('games.sect.dialog.playerTitle', { name: player.name }),
+    message: t('games.sect.dialog.playerMessage'),
+    confirmLabel: t('games.sect.dialog.playerConfirm'),
     onConfirm: () => {
       state.revealPlayerId = playerId;
       state.phase = 'reveal';
@@ -412,10 +411,9 @@ function askGoToGm() {
   }
 
   openDialog({
-    title: 'Nie wszyscy sprawdzili role',
-    message:
-      'Kontynuować? Gracz bez sprawdzonej roli może ją później odblokować w podglądzie ról.',
-    confirmLabel: 'Tak, kontynuuj',
+    title: t('games.sect.dialog.notAllTitle'),
+    message: t('games.sect.dialog.notAllMessage'),
+    confirmLabel: t('games.sect.dialog.notAllConfirm'),
     onConfirm: goToFirstNight,
   });
 }
@@ -440,9 +438,9 @@ function askUnlockRole(playerId) {
   }
 
   openDialog({
-    title: 'Pozwolić sprawdzić rolę ponownie?',
-    message: `Gracz ${player.name} będzie mógł jeszcze raz zobaczyć swoją rolę.`,
-    confirmLabel: 'Tak, pozwól',
+    title: t('games.sect.dialog.unlockTitle'),
+    message: t('games.sect.dialog.unlockMessage', { name: player.name }),
+    confirmLabel: t('games.sect.dialog.unlockConfirm'),
     onConfirm: () => {
       state.gameState = unmarkRoleChecked(state.gameState, playerId);
       renderState();
@@ -452,9 +450,9 @@ function askUnlockRole(playerId) {
 
 function requestExit() {
   openDialog({
-    title: 'Przerwać grę?',
-    message: 'Wrócisz do HUB-a. Ta rozgrywka nie jest zapisywana.',
-    confirmLabel: 'Tak, przerwij',
+    title: t('games.sect.dialog.exitTitle'),
+    message: t('games.sect.dialog.exitMessage'),
+    confirmLabel: t('games.sect.dialog.exitConfirm'),
     onConfirm: () => state.api.exit(),
   });
 }
@@ -503,7 +501,11 @@ function renderNight() {
     return;
   }
 
-  const label = `Noc ${state.gameState.nightNumber}, krok ${state.nightStep + 1} z ${state.nightSteps.length}`;
+  const label = t('games.sect.night.label', {
+    night: formatNumber(state.gameState.nightNumber),
+    step: formatNumber(state.nightStep + 1),
+    total: formatNumber(state.nightSteps.length),
+  });
   const common = {
     label,
     sayText: step.say,
@@ -516,7 +518,7 @@ function renderNight() {
       renderGmInfoScreen({
         ...common,
         doText: step.doText,
-        actionLabel: 'Dalej',
+        actionLabel: t('games.sect.gm.next'),
         onAction: advanceNightStep,
       }),
     );
@@ -570,7 +572,7 @@ function getNightCandidates(kind) {
         id: player.id,
         name: player.name,
         disabled: blocked,
-        note: blocked ? 'chroniona wczoraj' : '',
+        note: blocked ? t('games.sect.gm.noteProtected') : '',
       };
     });
   }
@@ -583,7 +585,7 @@ function getNightCandidates(kind) {
       id: player.id,
       name: player.name,
       disabled: self,
-      note: self ? 'śledczy — nie sprawdza siebie' : '',
+      note: self ? t('games.sect.gm.noteDetectiveSelf') : '',
     };
   });
 }
@@ -672,9 +674,9 @@ function renderMorning() {
 
   state.container.append(
     renderMorningScreen({
-      label: `Noc ${info.nightNumber} — poranek`,
+      label: t('games.sect.morning.label', { night: formatNumber(info.nightNumber) }),
       sayText: texts.say,
-      doText: 'Ogłoś wynik nocy. Szczegóły poniżej widzisz tylko Ty.',
+      doText: t('games.sect.morning.do'),
       detailText: texts.detail,
       onNext: afterMorning,
       ...gmActions(),
@@ -695,7 +697,7 @@ function afterMorning() {
 
 function renderDayDiscussion() {
   const screen = renderDayDiscussionScreen({
-    label: `Dzień ${state.gameState.nightNumber}`,
+    label: t('games.sect.day.label', { day: formatNumber(state.gameState.nightNumber) }),
     sayText: DAY_TEXTS.discussionSay,
     doText: DAY_TEXTS.discussionDo,
     seconds: DISCUSSION_SECONDS,
@@ -715,12 +717,12 @@ function renderDayVote() {
   const alive = state.gameState.players.filter((player) => player.alive);
   const candidates = [
     ...alive.map((player) => ({ id: player.id, name: player.name })),
-    { id: 'nobody', name: 'Nikt nie odpada' },
+    { id: 'nobody', name: t('games.sect.gm.noOne') },
   ];
 
   state.container.append(
     renderDayVoteScreen({
-      label: `Dzień ${state.gameState.nightNumber}`,
+      label: t('games.sect.day.label', { day: formatNumber(state.gameState.nightNumber) }),
       sayText: DAY_TEXTS.voteSay,
       doText: DAY_TEXTS.voteDo,
       candidates,
@@ -770,7 +772,7 @@ function renderDayResult() {
 
   state.container.append(
     renderDayResultScreen({
-      label: `Dzień ${state.gameState.nightNumber}`,
+      label: t('games.sect.day.label', { day: formatNumber(state.gameState.nightNumber) }),
       sayText: getDayResultSay({
         removedName: result.removedName,
         removedRoleName: result.removedRoleName,
@@ -863,9 +865,12 @@ function askCorrectPlayer(playerId) {
   const nextAlive = !player.alive;
 
   openDialog({
-    title: 'Poprawić stan gracza?',
-    message: `${player.name}: ustawisz „${nextAlive ? 'żyje' : 'nie żyje'}”. Wpis trafi do dziennika jako korekta ręczna.`,
-    confirmLabel: 'Tak, popraw',
+    title: t('games.sect.dialog.correctTitle'),
+    message: t('games.sect.dialog.correctMessage', {
+      name: player.name,
+      state: nextAlive ? t('games.sect.dialog.correctAlive') : t('games.sect.dialog.correctDead'),
+    }),
+    confirmLabel: t('games.sect.dialog.correctConfirm'),
     onConfirm: () => {
       const corrected = correctPlayerState(state.gameState, playerId, { alive: nextAlive });
       state.gameState = { ...corrected, winner: checkWin(corrected) };

@@ -15,11 +15,13 @@
  *  - przegrywa gracz, którego pula spadnie do zera; punkt dla jego drużyny dostaje rywal,
  *  - brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
+import { loadLines } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear, el } from '../../core/dom.js';
+import { getLanguage, t } from '../../core/i18n.js';
 import { shuffle } from '../../core/random.js';
+import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
 import { TEAMS, mountTeamSetup } from '../../components/team-setup.js';
-import { CATEGORIES } from './categories.js';
 import {
   createClockScreen,
   createExitFooter,
@@ -33,6 +35,9 @@ import {
 
 /** Id puli kategorii w content-pool.js — wspólna dla wszystkich partii w tej sesji. */
 const CATEGORY_POOL_ID = 'duel';
+
+/** Pule różnych języków są niezależne, np. "duel:pl" i "duel:en". */
+const getCategoryPoolId = () => `${CATEGORY_POOL_ID}:${getLanguage()}`;
 
 /** Klucz kategorii w puli to sam tekst kategorii. */
 const getCategoryKey = (category) => category;
@@ -66,6 +71,7 @@ const VIBRATION_END_MS = 300;
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
  *   players: string[],
+ *   categories: string[],
  *   teams: {first: string[], second: string[]} | null,
  *   order: {first: string[], second: string[]} | null,
  *   rounds: number,
@@ -89,7 +95,9 @@ const VIBRATION_END_MS = 300;
  *   },
  *   clockView: null | {el: HTMLElement, update: Function},
  *   confirmDialog: null | {title: string, message: string, confirmLabel: string},
- *   phase: 'teams' | 'intro' | 'clock' | 'result' | 'finished',
+ *   phase: 'loading' | 'load-error' | 'teams' | 'intro' | 'clock' | 'result' | 'finished',
+ *   loadError: string,
+ *   loadToken: number,
  * }}
  */
 let state = null;
@@ -99,26 +107,24 @@ let wakeLockSentinel = null;
 
 const game = {
   id: 'duel',
-  name: 'Ping-pong',
-  description: 'Jedna kategoria, dwóch rywali i zegar jak w szachach.',
+  nameKey: 'games.duel.name',
+  descriptionKey: 'games.duel.description',
   icon: '⏱️',
   minPlayers: 2,
   maxPlayers: 20,
 
   howToPlay: {
-    goal: 'Wymieniaj rzeczy z kategorii szybciej niż rywal i nie daj się zaskoczyć zegarowi.',
-    steps: [
-      'Gracze dzielą się na dwie drużyny, a w każdej rundzie pojedynkuje się jedna osoba z każdej z nich.',
-      `Połóżcie telefon między sobą i dotknijcie „Start". Każdy ma swoją połowę ekranu i jedną pulę czasu: ${PLAYER_TIME_SECONDS} s na cały pojedynek.`,
-      'Zegar chodzi osobie wskazanej napisem „Zaczyna: …". Wymienia ona jedną rzecz z kategorii i dotyka swojej połowy ekranu.',
-      'Po dotknięciu zegar tej osoby staje z zapamiętanym czasem, a rusza zegar przeciwnika. Kto nie zdąży wymienić rzeczy — przegrywa.',
-      'Punkt dostaje drużyna przeciwnika. Rund jest tyle, ile osób ma większa drużyna.',
+    goalKey: 'games.duel.goal',
+    stepKeys: [
+      'games.duel.steps.1',
+      'games.duel.steps.2',
+      'games.duel.steps.3',
+      'games.duel.steps.4',
+      'games.duel.steps.5',
     ],
-    tips: [
-      'Rzeczy, które już padły, nie powtarzają się.',
-      'W razie sporu użyjcie „Pauza", a potem „Wznów" — zegar stoi w miejscu.',
-    ],
+    tipKeys: ['games.duel.tips.1', 'games.duel.tips.2'],
   },
+  howToPlayParams: { seconds: PLAYER_TIME_SECONDS },
 
   /**
    * @param {HTMLElement} container
@@ -132,6 +138,7 @@ const game = {
       container,
       api,
       players: [...players],
+      categories: [],
       teams: null,
       order: null,
       rounds: 0,
@@ -144,11 +151,14 @@ const game = {
       clock: null,
       clockView: null,
       confirmDialog: null,
-      phase: 'teams',
+      phase: 'loading',
+      loadError: '',
+      loadToken: 0,
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     renderState();
+    loadContent();
   },
 
   unmount() {
@@ -166,6 +176,52 @@ export default game;
 /** Losowa drużyna — kto zaczyna pierwszą rundę. */
 function randomTeamId() {
   return shuffle(TEAMS)[0].id;
+}
+
+/** Wczytuje kategorie z pliku; ekran podziału na drużyny pojawia się po sukcesie. */
+async function loadContent() {
+  const sessionState = state;
+
+  if (!sessionState) {
+    return;
+  }
+
+  const token = sessionState.loadToken + 1;
+  sessionState.loadToken = token;
+  sessionState.phase = 'loading';
+  sessionState.loadError = '';
+  renderState();
+
+  try {
+    const categories = await loadLines('categories');
+
+    if (state !== sessionState || sessionState.loadToken !== token) {
+      return;
+    }
+
+    if (categories.length === 0) {
+      showLoadError(t('games.duel.loadEmpty'));
+      return;
+    }
+
+    state.categories = categories;
+    state.phase = 'teams';
+    renderState();
+  } catch (error) {
+    if (state !== sessionState || sessionState.loadToken !== token) {
+      return;
+    }
+
+    console.error('Nie udało się wczytać kategorii gry "Ping-pong":', error);
+    showLoadError(t('games.duel.loadError'));
+  }
+}
+
+/** Pokazuje ekran błędu wczytywania z ponowieniem i wyjściem do HUB-a. */
+function showLoadError(message) {
+  state.phase = 'load-error';
+  state.loadError = message;
+  renderState();
 }
 
 function teamById(teamId) {
@@ -295,6 +351,23 @@ function renderState() {
   clear(container);
   window.scrollTo(0, 0);
 
+  if (state.phase === 'loading') {
+    container.append(renderLoadingScreen());
+    container.append(createExitFooter(requestExit));
+    return;
+  }
+
+  if (state.phase === 'load-error') {
+    container.append(
+      renderLoadErrorScreen({
+        message: state.loadError,
+        onRetry: loadContent,
+        onExit: () => state.api.exit(),
+      }),
+    );
+    return;
+  }
+
   if (state.phase === 'teams') {
     renderTeamsPhase();
     return;
@@ -344,8 +417,8 @@ function renderIntroPhase() {
       onReady: startClockPhase,
       onRedrawCategory: redrawCategory,
       canRedrawCategory: hasOther(
-        CATEGORY_POOL_ID,
-        CATEGORIES,
+        getCategoryPoolId(),
+        state.categories,
         getCategoryKey,
         state.category,
       ),
@@ -615,9 +688,9 @@ function requestExit() {
   }
 
   state.confirmDialog = {
-    title: 'Zakończyć grę?',
-    message: 'Wrócisz do HUB-a, a bieżąca rozgrywka przepadnie — wyniki nie są zapisywane.',
-    confirmLabel: 'Tak, zakończ grę',
+    title: t('games.duel.exitTitle'),
+    message: t('games.duel.exitMessage'),
+    confirmLabel: t('games.duel.exitConfirm'),
   };
   renderState();
 }
@@ -629,9 +702,9 @@ function requestAbort() {
   }
 
   state.confirmDialog = {
-    title: 'Przerwać pojedynek?',
-    message: 'Ten pojedynek nie zostanie dokończony. Wrócisz do HUB-a.',
-    confirmLabel: 'Tak, przerwij',
+    title: t('games.duel.abortTitle'),
+    message: t('games.duel.abortMessage'),
+    confirmLabel: t('games.duel.abortConfirm'),
   };
   renderState();
 }
@@ -651,7 +724,7 @@ function startMatch(teams) {
 }
 
 function prepareRound() {
-  state.category = drawNext(CATEGORY_POOL_ID, CATEGORIES, getCategoryKey) ?? '—';
+  state.category = drawNext(getCategoryPoolId(), state.categories, getCategoryKey) ?? '—';
   state.duelists = {
     first: state.order.first[state.roundIndex % state.order.first.length],
     second: state.order.second[state.roundIndex % state.order.second.length],
@@ -673,7 +746,7 @@ function redrawCategory() {
     return;
   }
 
-  const next = redraw(CATEGORY_POOL_ID, CATEGORIES, getCategoryKey, state.category);
+  const next = redraw(getCategoryPoolId(), state.categories, getCategoryKey, state.category);
 
   if (!next) {
     return;

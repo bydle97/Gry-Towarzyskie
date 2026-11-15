@@ -6,6 +6,7 @@
  * Wszystkie klasy mają prefiks "gn-" (guess-number), żeby nie kolidowały z HUB-em.
  */
 import { el } from '../../core/dom.js';
+import { formatNumber, t } from '../../core/i18n.js';
 
 const STYLE_ELEMENT_ID = 'guess-number-styles';
 
@@ -205,22 +206,28 @@ export function createExitFooter(onRequestExit) {
   return el('button', {
     class: 'button button--secondary button--block',
     type: 'button',
-    text: 'Zakończ grę i wróć do HUB-a',
+    text: t('games.guess-number.exitFooter'),
     onClick: onRequestExit,
   });
 }
 
 function createQuestionBlock(question, questionNumber, totalQuestions) {
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'gn-progress', text: `Pytanie ${questionNumber} z ${totalQuestions}` }),
+    el('p', {
+      class: 'gn-progress',
+      text: t('games.guess-number.progress', {
+        current: formatNumber(questionNumber),
+        total: formatNumber(totalQuestions),
+      }),
+    }),
     el('p', { class: 'gn-question', text: question.text }),
-    el('p', { class: 'gn-hint', text: 'Przeczytaj pytanie na głos — reszta obstawia liczbę.' }),
+    el('p', { class: 'gn-hint', text: t('games.guess-number.questionHint') }),
   ]);
 }
 
 function createGuessesList({ players, guesses }) {
   if (guesses.length === 0) {
-    return el('p', { class: 'gn-hint', text: 'Jeszcze nikt nie obstawił.' });
+    return el('p', { class: 'gn-hint', text: t('games.guess-number.noGuesses') });
   }
 
   return el(
@@ -274,7 +281,9 @@ export function renderTurnScreen({
           el('button', {
             class: 'button button--secondary button--compact',
             type: 'button',
-            text: canRedrawQuestion ? 'Inne pytanie' : 'Brak innych',
+            text: canRedrawQuestion
+              ? t('games.guess-number.redraw')
+              : t('games.guess-number.noOther'),
             disabled: !canRedrawQuestion,
             onClick: onRedrawQuestion,
           }),
@@ -286,13 +295,15 @@ export function renderTurnScreen({
     el('div', { class: 'panel' }, [
       el('h2', {
         class: 'panel__title',
-        text: allGuessed ? 'Wszyscy obstawili' : `Tura: ${players[currentPlayerIndex]}`,
+        text: allGuessed
+          ? t('games.guess-number.allGuessedTitle')
+          : t('games.guess-number.turnTitle', { name: players[currentPlayerIndex] }),
       }),
       el('p', {
         class: 'gn-hint',
         text: allGuessed
-          ? 'Sprawdźcie typy, a potem pokażcie prawidłową odpowiedź.'
-          : 'Podaj telefon osobie, której jest tura — typy poprzednich graczy są widoczne poniżej.',
+          ? t('games.guess-number.allGuessedHint')
+          : t('games.guess-number.turnHint'),
       }),
       createGuessesList({ players, guesses }),
     ]),
@@ -303,7 +314,7 @@ export function renderTurnScreen({
       el('button', {
         class: 'button button--primary button--block',
         type: 'button',
-        text: 'Pokaż odpowiedź',
+        text: t('games.guess-number.reveal'),
         onClick: onReveal,
       }),
     );
@@ -342,19 +353,19 @@ export function renderTurnScreen({
           const rawValue = input.value.trim();
 
           if (rawValue === '') {
-            showError(errorBox, 'Podaj liczbę.');
+            showError(errorBox, t('games.guess-number.errors.empty'));
             input.focus();
             return;
           }
           if (!/^[+-]?\d+$/.test(rawValue)) {
-            showError(errorBox, 'Podaj liczbę całkowitą.');
+            showError(errorBox, t('games.guess-number.errors.integer'));
             input.focus();
             return;
           }
 
           const value = Number(rawValue);
           if (!Number.isSafeInteger(value)) {
-            showError(errorBox, 'Podaj liczbę całkowitą.');
+            showError(errorBox, t('games.guess-number.errors.integer'));
             input.focus();
             return;
           }
@@ -365,14 +376,18 @@ export function renderTurnScreen({
       },
       [
         el('div', { class: 'field' }, [
-          el('label', { class: 'field__label', for: inputId, text: 'Twoja liczba' }),
+          el('label', {
+            class: 'field__label',
+            for: inputId,
+            text: t('games.guess-number.inputLabel'),
+          }),
           inputRow,
         ]),
         errorBox,
         el('button', {
           class: 'button button--primary button--block',
           type: 'submit',
-          text: 'Zatwierdź',
+          text: t('games.guess-number.submit'),
         }),
       ],
     ),
@@ -406,16 +421,22 @@ export function renderAnswerScreen({
     : formatNumber(question.answer);
 
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'gn-progress', text: `Pytanie ${questionNumber} z ${totalQuestions}` }),
+    el('p', {
+      class: 'gn-progress',
+      text: t('games.guess-number.progress', {
+        current: formatNumber(questionNumber),
+        total: formatNumber(totalQuestions),
+      }),
+    }),
 
     el('div', { class: 'panel gn-answer' }, [
-      el('p', { class: 'gn-answer-label', text: 'Prawidłowa odpowiedź' }),
+      el('p', { class: 'gn-answer-label', text: t('games.guess-number.answerLabel') }),
       el('p', { class: 'gn-answer-value', text: answerText }),
       el('p', { class: 'gn-hint', text: question.text }),
     ]),
 
     el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: 'Ranking — od najbliższego' }),
+      el('h2', { class: 'panel__title', text: t('games.guess-number.rankingTitle') }),
       el(
         'ol',
         { class: 'gn-ranking' },
@@ -428,22 +449,24 @@ export function renderAnswerScreen({
               class: 'gn-ranking-distance',
               text:
                 entry.distance === 0
-                  ? 'trafione co do jednego!'
-                  : `różnica ${formatNumber(entry.distance)}`,
+                  ? t('games.guess-number.exact')
+                  : t('games.guess-number.distance', {
+                      distance: formatNumber(entry.distance),
+                    }),
             }),
           ]),
         ),
       ),
       el('p', {
         class: 'gn-hint',
-        text: 'W następnym pytaniu gracze obstawiają w kolejności tego rankingu.',
+        text: t('games.guess-number.nextOrderHint'),
       }),
     ]),
 
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Następne pytanie',
+      text: t('games.guess-number.nextQuestion'),
       onClick: onNext,
     }),
   ]);
@@ -457,17 +480,22 @@ export function renderAnswerScreen({
 export function renderFinishedScreen({ totalQuestions, onExit }) {
   return el('div', { class: 'stack' }, [
     el('div', { class: 'panel gn-answer' }, [
-      el('p', { class: 'gn-answer-label', text: 'Koniec' }),
-      el('p', { class: 'gn-question', text: 'Wykorzystaliśmy wszystkie pytania z tej partii.' }),
+      el('p', { class: 'gn-answer-label', text: t('games.guess-number.finishLabel') }),
+      el('p', {
+        class: 'gn-question',
+        text: t('games.guess-number.finishTitle'),
+      }),
       el('p', {
         class: 'gn-hint',
-        text: `Pytań w partii: ${totalQuestions}. Punkty nie są liczone, a wyniki nie są zapisywane.`,
+        text: t('games.guess-number.finishHint', {
+          count: formatNumber(totalQuestions),
+        }),
       }),
     ]),
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Wróć do HUB-a',
+      text: t('games.guess-number.backToHub'),
       onClick: onExit,
     }),
   ]);
@@ -489,21 +517,25 @@ export function renderExitDialog({ onConfirm, onCancel }) {
         'aria-labelledby': 'gn-dialog-title',
       },
       [
-        el('h2', { class: 'panel__title', id: 'gn-dialog-title', text: 'Zakończyć grę?' }),
+        el('h2', {
+          class: 'panel__title',
+          id: 'gn-dialog-title',
+          text: t('games.guess-number.exitTitle'),
+        }),
         el('p', {
           class: 'gn-hint',
-          text: 'Wrócisz do HUB-a, a bieżąca rozgrywka przepadnie — wyniki nie są zapisywane.',
+          text: t('games.guess-number.exitMessage'),
         }),
         el('button', {
           class: 'button button--primary button--block',
           type: 'button',
-          text: 'Tak, zakończ grę',
+          text: t('games.guess-number.exitConfirm'),
           onClick: onConfirm,
         }),
         el('button', {
           class: 'button button--secondary button--block',
           type: 'button',
-          text: 'Zostań w grze',
+          text: t('games.guess-number.exitCancel'),
           onClick: onCancel,
         }),
       ],
@@ -514,15 +546,5 @@ export function renderExitDialog({ onConfirm, onCancel }) {
 function showError(node, message) {
   node.textContent = message;
   node.hidden = false;
-}
-
-/**
- * Formatuje liczbę do czytelnej postaci (separator tysięcy wg języka polskiego).
- * Tylko wyświetlanie — walidacja i logika gry operują na liczbach.
- * @param {number} value
- * @returns {string}
- */
-function formatNumber(value) {
-  return value.toLocaleString('pl-PL');
 }
 

@@ -8,6 +8,7 @@
  * bo w projekcie nie ma wspólnego components/hold-to-reveal.js.
  */
 import { clear, el } from '../../core/dom.js';
+import { formatNumber, t } from '../../core/i18n.js';
 import { MIN_PLAYERS, ROLES } from './config.js';
 import { GUIDE_SECTIONS } from './gm-guide.js';
 
@@ -586,7 +587,7 @@ function createExitFooter(onExit) {
   return el('button', {
     class: 'button button--secondary button--block',
     type: 'button',
-    text: 'Zakończ grę i wróć do HUB-a',
+    text: t('games.sect.ui.exitFooter'),
     onClick: onExit,
   });
 }
@@ -607,7 +608,7 @@ export function renderConfirmDialog({
   title,
   message,
   confirmLabel,
-  cancelLabel = 'Anuluj',
+  cancelLabel = t('games.sect.dialog.cancel'),
   onConfirm,
   onCancel,
 }) {
@@ -666,15 +667,23 @@ export function renderSetupScreen({
   onExit,
 }) {
   const gmOptions = [
-    el('option', { value: '', text: 'Ktoś spoza listy graczy', selected: gmName === null }),
+    el('option', {
+      value: '',
+      text: t('games.sect.setup.outsider'),
+      selected: gmName === null,
+    }),
     ...players.map((name) => el('option', { value: name, text: name, selected: gmName === name })),
   ];
 
   return el('div', { class: 'stack' }, [
-    createHead('Sekta', 'Ukryta sekta w miasteczku. Mistrz gry prowadzi noc i dzień.'),
+    createHead(t('games.sect.name'), t('games.sect.description')),
 
     el('div', { class: 'panel' }, [
-      el('label', { class: 'field__label', for: 'sect-gm-select', text: 'Kto prowadzi grę?' }),
+      el('label', {
+        class: 'field__label',
+        for: 'sect-gm-select',
+        text: t('games.sect.setup.gmLabel'),
+      }),
       el(
         'select',
         {
@@ -686,22 +695,31 @@ export function renderSetupScreen({
       ),
       el('p', {
         class: 'sec-hint',
-        text: 'Mistrz gry nie gra, nie ma roli i nie głosuje. Trzyma telefon i prowadzi rozgrywkę.',
+        text: t('games.sect.setup.gmHint'),
       }),
     ]),
 
     el('div', { class: 'panel' }, [
-      el('h3', { class: 'panel__title', text: 'Skład' }),
-      el('p', { class: 'sec-lineup', text: `Gracze: ${playingCount}` }),
+      el('h3', { class: 'panel__title', text: t('games.sect.setup.lineupTitle') }),
+      el('p', {
+        class: 'sec-lineup',
+        text: t('games.sect.setup.players', { count: formatNumber(playingCount) }),
+      }),
       belowMinimum
-        ? el('p', { class: 'form-error', text: `Za mało graczy: potrzeba min. ${MIN_PLAYERS}` })
-        : el('p', { class: 'sec-lineup', text: `Skład: ${lineupText}` }),
+        ? el('p', {
+            class: 'form-error',
+            text: t('games.sect.setup.notEnough', { count: formatNumber(MIN_PLAYERS) }),
+          })
+        : el('p', {
+            class: 'sec-lineup',
+            text: t('games.sect.setup.lineup', { lineup: lineupText }),
+          }),
     ]),
 
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Rozdaj role',
+      text: t('games.sect.setup.dealRoles'),
       disabled: belowMinimum,
       onClick: onDealRoles,
     }),
@@ -709,7 +727,7 @@ export function renderSetupScreen({
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Instrukcja mistrza gry',
+      text: t('games.sect.setup.openGuide'),
       onClick: onOpenGuide,
     }),
 
@@ -755,7 +773,10 @@ export function renderRoleCheckScreen({
           [
             el('span', { class: 'sec-player__name', text: player.name }),
             player.roleChecked
-              ? el('span', { class: 'sec-player__note', text: 'rola sprawdzona' })
+              ? el('span', {
+                  class: 'sec-player__note',
+                  text: t('games.sect.check.roleChecked'),
+                })
               : null,
           ],
         ),
@@ -766,15 +787,18 @@ export function renderRoleCheckScreen({
   return el('div', { class: 'stack' }, [
     el('div', { class: 'panel' }, [
       el('div', { class: 'row' }, [
-        el('h2', { class: 'panel__title', text: 'Sprawdzanie ról' }),
+        el('h2', { class: 'panel__title', text: t('games.sect.check.title') }),
         el('span', {
           class: 'sec-counter',
-          text: `Sprawdzono: ${checkedCount} z ${gameState.players.length}`,
+          text: t('games.sect.check.counter', {
+            checked: formatNumber(checkedCount),
+            total: formatNumber(gameState.players.length),
+          }),
         }),
       ]),
       el('p', {
         class: 'sec-hint',
-        text: 'Każdy dotyka swojego imienia i sprawdza rolę tak, żeby nikt jej nie zobaczył.',
+        text: t('games.sect.check.hint'),
       }),
       playerList,
     ]),
@@ -783,7 +807,7 @@ export function renderRoleCheckScreen({
       ? el('div', { class: 'panel sec-done' }, [
           el('p', {
             class: 'sec-done__text',
-            text: 'Wszyscy znają swoje role. Oddajcie telefon mistrzowi gry.',
+            text: t('games.sect.check.done'),
           }),
         ])
       : null,
@@ -791,7 +815,7 @@ export function renderRoleCheckScreen({
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: allChecked ? 'Przekazano mistrzowi gry' : 'Mistrz gry: przejdź dalej',
+      text: allChecked ? t('games.sect.check.handed') : t('games.sect.check.continue'),
       onClick: onGoToGm,
     }),
 
@@ -799,13 +823,13 @@ export function renderRoleCheckScreen({
       el('button', {
         class: 'button button--secondary button--block',
         type: 'button',
-        text: 'Podgląd ról (mistrz gry)',
+        text: t('games.sect.check.preview'),
         onClick: onOpenPreview,
       }),
       el('button', {
         class: 'button button--secondary button--block',
         type: 'button',
-        text: 'Przerwij grę',
+        text: t('games.sect.check.abort'),
         onClick: onExit,
       }),
     ]),
@@ -825,7 +849,10 @@ export function renderRoleCheckScreen({
 export function renderRoleRevealScreen({ player, role, onHide }) {
   return el('div', { class: 'stack' }, [
     el('div', { class: 'panel sec-reveal' }, [
-      el('p', { class: 'sec-hint', text: `Rola gracza: ${player.name}` }),
+      el('p', {
+        class: 'sec-hint',
+        text: t('games.sect.reveal.title', { name: player.name }),
+      }),
       el('p', { class: 'sec-role-name', text: role.name }),
       el('p', { class: 'sec-role-text', text: role.revealText }),
     ]),
@@ -833,7 +860,7 @@ export function renderRoleRevealScreen({ player, role, onHide }) {
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Ukryj rolę',
+      text: t('games.sect.reveal.hide'),
       onClick: onHide,
     }),
   ]);
@@ -867,7 +894,7 @@ function createSecretList(players) {
  */
 export function renderPreviewScreen({ gameState, onUnlockRole, onBack, onExit }) {
   const holdBox = createHoldReveal({
-    label: 'Przytrzymaj, aby zobaczyć role',
+    label: t('games.sect.preview.hold'),
     renderContent: () => createSecretList(gameState.players),
   });
 
@@ -880,7 +907,7 @@ export function renderPreviewScreen({ gameState, onUnlockRole, onBack, onExit })
         el('button', {
           class: 'button button--secondary sec-unlock-row__button',
           type: 'button',
-          text: 'Pozwól sprawdzić rolę ponownie',
+          text: t('games.sect.preview.unlock'),
           disabled: !player.roleChecked,
           onClick: () => onUnlockRole(player.id),
         }),
@@ -890,17 +917,17 @@ export function renderPreviewScreen({ gameState, onUnlockRole, onBack, onExit })
 
   return el('div', { class: 'stack' }, [
     createHead(
-      'Podgląd ról',
-      'Tylko dla mistrza gry. Trzymaj telefon tak, żeby nikt nie widział ekranu.',
+      t('games.sect.preview.title'),
+      t('games.sect.preview.subtitle'),
     ),
 
     el('div', { class: 'panel' }, [holdBox]),
 
     el('div', { class: 'panel' }, [
-      el('h3', { class: 'panel__title', text: 'Ponowne sprawdzenie roli' }),
+      el('h3', { class: 'panel__title', text: t('games.sect.preview.unlockTitle') }),
       el('p', {
         class: 'sec-hint',
-        text: 'Odblokuj imię, jeśli gracz pomylił się przy sprawdzaniu. Przycisk działa tylko dla sprawdzonych ról.',
+        text: t('games.sect.preview.unlockHint'),
       }),
       unlockList,
     ]),
@@ -909,7 +936,7 @@ export function renderPreviewScreen({ gameState, onUnlockRole, onBack, onExit })
       el('button', {
         class: 'button button--secondary button--block',
         type: 'button',
-        text: 'Wróć do gry',
+        text: t('games.sect.preview.back'),
         onClick: onBack,
       }),
       createExitFooter(onExit),
@@ -979,25 +1006,25 @@ export function createGmHeader({ label, onOpenPreview, onOpenBoard, onOpenGuide,
       el('button', {
         class: 'sec-gm-head__button',
         type: 'button',
-        text: 'Podgląd ról',
+        text: t('games.sect.gm.preview'),
         onClick: onOpenPreview,
       }),
       el('button', {
         class: 'sec-gm-head__button',
         type: 'button',
-        text: 'Tablica',
+        text: t('games.sect.gm.board'),
         onClick: onOpenBoard,
       }),
       el('button', {
         class: 'sec-gm-head__button',
         type: 'button',
-        text: 'Instrukcja',
+        text: t('games.sect.gm.guide'),
         onClick: onOpenGuide,
       }),
       el('button', {
         class: 'sec-gm-head__button sec-gm-head__button--danger',
         type: 'button',
-        text: 'Przerwij grę',
+        text: t('games.sect.gm.abort'),
         onClick: onAbort,
       }),
     ]),
@@ -1007,15 +1034,15 @@ export function createGmHeader({ label, onOpenPreview, onOpenBoard, onOpenGuide,
 /** Blok "Powiedz na głos" — tekst w cudzysłowie, dużą czcionką. */
 function createSayBlock(text) {
   return el('div', { class: 'sec-block sec-block--say' }, [
-    el('p', { class: 'sec-block__label', text: 'Powiedz na głos:' }),
-    el('p', { class: 'sec-say', text: `„${text}"` }),
+    el('p', { class: 'sec-block__label', text: t('games.sect.gm.sayLabel') }),
+    el('p', { class: 'sec-say', text: `„${text}”` }),
   ]);
 }
 
 /** Blok "Zrób" z dowolną zawartością. */
 function createDoBlock(children) {
   return el('div', { class: 'sec-block sec-block--do' }, [
-    el('p', { class: 'sec-block__label', text: 'Zrób:' }),
+    el('p', { class: 'sec-block__label', text: t('games.sect.gm.doLabel') }),
     ...children,
   ]);
 }
@@ -1051,7 +1078,7 @@ function createGmScreenFrame({
       ? el('button', {
           class: 'button button--secondary button--block',
           type: 'button',
-          text: 'Cofnij krok',
+          text: t('games.sect.gm.undo'),
           onClick: onUndo,
         })
       : null,
@@ -1088,7 +1115,7 @@ export function renderGmInfoScreen({
   label,
   sayText,
   doText,
-  actionLabel = 'Dalej',
+  actionLabel = t('games.sect.gm.next'),
   onAction,
   onOpenPreview,
   onOpenBoard,
@@ -1132,7 +1159,7 @@ export function renderGmPickScreen({
       el('p', { class: 'sec-do', text: doText }),
       createPickList(candidates, selectedId, onSelect),
     ],
-    actionLabel: 'Zatwierdź',
+    actionLabel: t('games.sect.gm.confirm'),
     actionDisabled: !selectedId,
     onAction: onConfirm,
     onOpenPreview,
@@ -1158,7 +1185,7 @@ export function renderDetectiveResultScreen({
   onUndo,
 }) {
   const secret = createHoldReveal({
-    label: 'Przytrzymaj, aby zobaczyć wynik',
+    label: t('games.sect.gm.holdResult'),
     renderContent: () =>
       el('div', { class: 'sec-secret-inner' }, [
         el('p', { class: 'sec-result', text: resultText }),
@@ -1172,11 +1199,11 @@ export function renderDetectiveResultScreen({
     doChildren: [
       el('p', {
         class: 'sec-do',
-        text: `Sprawdzasz: ${targetName}. Wynik pokaż gestem, bez słów.`,
+        text: t('games.sect.gm.detectiveCheck', { name: targetName }),
       }),
       secret,
     ],
-    actionLabel: 'Dalej',
+    actionLabel: t('games.sect.gm.next'),
     onAction: onNext,
     onOpenPreview,
     onOpenBoard,
@@ -1199,7 +1226,7 @@ export function renderMorningScreen({
   onAbort,
 }) {
   const detail = createHoldReveal({
-    label: 'Przytrzymaj, aby zobaczyć szczegóły',
+    label: t('games.sect.gm.holdDetails'),
     renderContent: () => el('p', { class: 'sec-do', text: detailText }),
   });
 
@@ -1207,7 +1234,7 @@ export function renderMorningScreen({
     label,
     sayText,
     doChildren: [el('p', { class: 'sec-do', text: doText }), detail],
-    actionLabel: 'Dalej',
+    actionLabel: t('games.sect.gm.next'),
     onAction: onNext,
     onOpenPreview,
     onOpenBoard,
@@ -1241,13 +1268,13 @@ function createCountdown({ seconds }) {
   const startButton = el('button', {
     class: 'button button--secondary sec-timer__button',
     type: 'button',
-    text: 'Start',
+    text: t('games.sect.ui.start'),
     onClick: start,
   });
   const stopButton = el('button', {
     class: 'button button--secondary sec-timer__button',
     type: 'button',
-    text: 'Stop',
+    text: t('games.sect.ui.stop'),
     onClick: stop,
   });
 
@@ -1324,7 +1351,7 @@ export function renderDayDiscussionScreen({
     label,
     sayText,
     doChildren: [el('p', { class: 'sec-do', text: doText }), timer.el],
-    actionLabel: 'Przejdź do głosowania',
+    actionLabel: t('games.sect.ui.goToVote'),
     onAction: () => {
       timer.destroy();
       onNext();
@@ -1359,7 +1386,7 @@ export function renderDayVoteScreen({
       el('p', { class: 'sec-do', text: doText }),
       createPickList(candidates, selectedId, onSelect),
     ],
-    actionLabel: 'Zatwierdź',
+    actionLabel: t('games.sect.gm.confirm'),
     actionDisabled: !selectedId,
     onAction: onConfirm,
     onOpenPreview,
@@ -1384,7 +1411,7 @@ export function renderDayResultScreen({
     label,
     sayText,
     doChildren: [el('p', { class: 'sec-do', text: doText })],
-    actionLabel: 'Dalej',
+    actionLabel: t('games.sect.gm.next'),
     onAction: onNext,
     onOpenPreview,
     onOpenBoard,
@@ -1408,26 +1435,38 @@ function describeNightEntry(entry, players) {
   const parts = [];
 
   if (entry.sectTargetId) {
-    parts.push(`sekta wskazała ${nameOf(entry.sectTargetId)}`);
+    parts.push(t('games.sect.log.sect', { name: nameOf(entry.sectTargetId) }));
   }
   if (entry.doctorTargetId) {
-    parts.push(`lekarz chronił ${nameOf(entry.doctorTargetId)}`);
+    parts.push(t('games.sect.log.doctor', { name: nameOf(entry.doctorTargetId) }));
   }
   if (entry.detectiveTargetId) {
-    const result = entry.detectiveResult === 'sect' ? 'sekciarz' : 'nie sekciarz';
-    parts.push(`śledczy sprawdził ${nameOf(entry.detectiveTargetId)} (${result})`);
+    const result =
+      entry.detectiveResult === 'sect'
+        ? t('games.sect.log.detectiveSect')
+        : t('games.sect.log.detectiveNotSect');
+    parts.push(
+      t('games.sect.log.detective', {
+        name: nameOf(entry.detectiveTargetId),
+        result,
+      }),
+    );
   }
   if (parts.length === 0) {
-    parts.push('brak wyborów');
+    parts.push(t('games.sect.log.noChoices'));
   }
 
   const effect = entry.victimId
-    ? `zginął ${nameOf(entry.victimId)}`
+    ? t('games.sect.log.victim', { name: nameOf(entry.victimId) })
     : entry.saved
-      ? 'nikt nie zginął, ofiara uratowana'
-      : 'nikt nie zginął';
+      ? t('games.sect.log.saved')
+      : t('games.sect.log.noVictim');
 
-  return `Noc ${entry.night}: ${parts.join('; ')}. Skutek: ${effect}.`;
+  return t('games.sect.log.entry', {
+    night: formatNumber(entry.night),
+    parts: parts.join('; '),
+    effect,
+  });
 }
 
 /**
@@ -1451,7 +1490,7 @@ export function renderFinishedScreen({
   onExit,
 }) {
   return el('div', { class: 'stack' }, [
-    createHead('Koniec gry', 'Role wychodzą na jaw. Przeczytaj wynik na głos.'),
+    createHead(t('games.sect.finished.title'), t('games.sect.finished.subtitle')),
 
     el('div', { class: 'panel' }, [
       el('p', {
@@ -1463,7 +1502,7 @@ export function renderFinishedScreen({
     ]),
 
     el('div', { class: 'panel' }, [
-      el('h3', { class: 'panel__title', text: 'Gracze i role' }),
+      el('h3', { class: 'panel__title', text: t('games.sect.finished.rolesTitle') }),
       el(
         'ul',
         { class: 'sec-role-list' },
@@ -1483,9 +1522,9 @@ export function renderFinishedScreen({
     ]),
 
     el('div', { class: 'panel' }, [
-      el('h3', { class: 'panel__title', text: 'Dziennik nocy' }),
+      el('h3', { class: 'panel__title', text: t('games.sect.finished.logTitle') }),
       nightLog.length === 0
-        ? el('p', { class: 'sec-hint', text: 'Brak zapisanych nocy.' })
+        ? el('p', { class: 'sec-hint', text: t('games.sect.finished.noNights') })
         : el(
             'ul',
             { class: 'sec-log' },
@@ -1497,25 +1536,25 @@ export function renderFinishedScreen({
 
     el('p', {
       class: 'sec-hint',
-      text: '„Jeszcze raz" zachowuje dotychczasowe role, „Nowe role" tasuje je i wraca do sprawdzania ról.',
+      text: t('games.sect.finished.hint'),
     }),
 
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Jeszcze raz (te same osoby)',
+      text: t('games.sect.finished.playAgain'),
       onClick: onPlayAgain,
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Nowe role',
+      text: t('games.sect.finished.newRoles'),
       onClick: onNewRoles,
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Wróć do HUB-a',
+      text: t('games.sect.finished.backToHub'),
       onClick: onExit,
     }),
   ]);
@@ -1524,21 +1563,21 @@ export function renderFinishedScreen({
 /** Publiczny opis stanu gracza do Tablicy mistrza gry. */
 function describePlayerState(player) {
   if (player.alive) {
-    return 'Żyje';
+    return t('games.sect.state.alive');
   }
 
   const death = player.death;
 
   if (!death) {
-    return '💀 Nie żyje';
+    return t('games.sect.state.dead');
   }
   if (death.type === 'night') {
-    return `💀 Nie żyje — zginął w nocy ${death.number}`;
+    return t('games.sect.state.deadNight', { night: formatNumber(death.number) });
   }
   if (death.type === 'day') {
-    return `💀 Nie żyje — odpadł w dniu ${death.number}`;
+    return t('games.sect.state.deadDay', { day: formatNumber(death.number) });
   }
-  return '💀 Nie żyje — korekta ręczna';
+  return t('games.sect.state.deadManual');
 }
 
 /** Oznaczenia bieżącej nocy (zawsze ikona + tekst, nie tylko kolor). */
@@ -1546,16 +1585,16 @@ function getNightMarkers(player, nightChoices) {
   const markers = [];
 
   if (nightChoices.sectTargetId === player.id) {
-    markers.push('🗡️ Ofiara sekty');
+    markers.push(t('games.sect.markers.sectTarget'));
   }
   if (nightChoices.doctorTargetId === player.id) {
-    markers.push('💉 Chroniony przez lekarza');
+    markers.push(t('games.sect.markers.doctorTarget'));
   }
   if (nightChoices.detectiveTargetId === player.id) {
     markers.push(
       nightChoices.detectiveResult === 'sect'
-        ? '🔍 Sprawdzony: sekciarz'
-        : '🔍 Sprawdzony: nie sekciarz',
+        ? t('games.sect.markers.detectiveSect')
+        : t('games.sect.markers.detectiveNotSect'),
     );
   }
 
@@ -1577,21 +1616,27 @@ function createBoardSecret({ players, nightChoices, nightLog, corrections }) {
 
   const correctionRows = corrections.map((entry) => {
     const player = players.find((item) => item.id === entry.playerId);
-    const stateText = entry.alive ? 'żyje' : 'nie żyje';
+    const stateText = entry.alive
+      ? t('games.sect.dialog.correctAlive')
+      : t('games.sect.dialog.correctDead');
 
     return el('li', {
       class: 'sec-log__entry',
-      text: `Korekta ręczna (noc ${entry.number}): ${player ? player.name : '—'} — ${stateText}.`,
+      text: t('games.sect.board.correction', {
+        night: formatNumber(entry.number),
+        name: player ? player.name : '—',
+        state: stateText,
+      }),
     });
   });
 
   return el('div', { class: 'sec-secret-inner' }, [
-    el('p', { class: 'sec-block__label', text: 'Role i oznaczenia bieżącej nocy' }),
+    el('p', { class: 'sec-block__label', text: t('games.sect.board.secretLabel') }),
     el('ul', { class: 'sec-board__secret-list' }, rows),
 
-    el('p', { class: 'sec-block__label', text: 'Dziennik nocy' }),
+    el('p', { class: 'sec-block__label', text: t('games.sect.finished.logTitle') }),
     nightLog.length === 0
-      ? el('p', { class: 'sec-hint', text: 'Brak zapisanych nocy.' })
+      ? el('p', { class: 'sec-hint', text: t('games.sect.finished.noNights') })
       : el(
           'ul',
           { class: 'sec-log' },
@@ -1629,7 +1674,7 @@ export function renderBoardOverlay({
   const deadCount = players.length - aliveCount;
 
   const secret = createHoldReveal({
-    label: 'Przytrzymaj, aby zobaczyć tajne',
+    label: t('games.sect.board.hold'),
     renderContent: () => createBoardSecret({ players, nightChoices, nightLog, corrections }),
   });
 
@@ -1647,20 +1692,29 @@ export function renderBoardOverlay({
           el('h2', {
             class: 'panel__title',
             id: 'sec-board-title',
-            text: 'Tablica mistrza gry',
+            text: t('games.sect.board.title'),
           }),
           el('button', {
             class: 'sec-gm-head__button',
             type: 'button',
-            text: 'Zamknij',
+            text: t('games.sect.board.close'),
             onClick: onClose,
           }),
         ]),
 
-        el('p', { class: 'sec-hint', text: `Żywi: ${aliveCount}, martwi: ${deadCount}` }),
+        el('p', {
+          class: 'sec-hint',
+          text: t('games.sect.board.aliveDead', {
+            alive: formatNumber(aliveCount),
+            dead: formatNumber(deadCount),
+          }),
+        }),
 
         winnerText
-          ? el('p', { class: 'form-error', text: `Spełniony warunek wygranej: ${winnerText}` })
+          ? el('p', {
+              class: 'form-error',
+              text: t('games.sect.board.winCondition', { text: winnerText }),
+            })
           : null,
 
         el(
@@ -1676,7 +1730,7 @@ export function renderBoardOverlay({
               el('button', {
                 class: 'sec-gm-head__button',
                 type: 'button',
-                text: 'Popraw ręcznie',
+                text: t('games.sect.board.correct'),
                 onClick: () => onCorrect(player.id),
               }),
             ]),
@@ -1688,7 +1742,7 @@ export function renderBoardOverlay({
         el('button', {
           class: 'button button--secondary button--block',
           type: 'button',
-          text: 'Zamknij tablicę',
+          text: t('games.sect.board.closeBoard'),
           onClick: onClose,
         }),
       ]),
@@ -1705,7 +1759,7 @@ export function renderBoardOverlay({
  */
 export function renderGuideScreen({ auto, onStart, onSkip, onBack }) {
   return el('div', { class: 'stack' }, [
-    createHead('Instrukcja mistrza gry', 'Przeczytaj przed pierwszą nocą. Ekran przewijasz palcem.'),
+    createHead(t('games.sect.guideScreen.title'), t('games.sect.guideScreen.subtitle')),
 
     ...GUIDE_SECTIONS.map((section) =>
       el('section', { class: 'panel' }, [
@@ -1722,7 +1776,7 @@ export function renderGuideScreen({ auto, onStart, onSkip, onBack }) {
       ? el('button', {
           class: 'button button--primary button--block sec-gm-action',
           type: 'button',
-          text: 'Przeczytałem, zaczynamy',
+          text: t('games.sect.guideScreen.read'),
           onClick: onStart,
         })
       : null,
@@ -1731,13 +1785,13 @@ export function renderGuideScreen({ auto, onStart, onSkip, onBack }) {
       ? el('button', {
           class: 'button button--secondary button--block',
           type: 'button',
-          text: 'Pomiń',
+          text: t('games.sect.guideScreen.skip'),
           onClick: onSkip,
         })
       : el('button', {
           class: 'button button--secondary button--block',
           type: 'button',
-          text: 'Zamknij instrukcję',
+          text: t('games.sect.guideScreen.close'),
           onClick: onBack,
         }),
   ]);

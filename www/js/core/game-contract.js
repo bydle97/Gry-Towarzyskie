@@ -32,6 +32,7 @@
  *  - po wywołaniu unmount() nie może zostać żaden aktywny timer ani nasłuch zdarzeń,
  *  - teksty w interfejsie po polsku, identyfikatory w kodzie po angielsku.
  */
+import { t } from './i18n.js';
 
 /** Dozwolony format identyfikatora gry, np. "example", "mafia", "rewolwer-2". */
 export const GAME_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -107,11 +108,11 @@ export function validateGame(game) {
   if (typeof game.id !== 'string' || !GAME_ID_PATTERN.test(game.id)) {
     errors.push('Pole "id" musi składać się z małych liter, cyfr i myślników, np. "example".');
   }
-  if (typeof game.name !== 'string' || game.name.trim() === '') {
-    errors.push('Pole "name" musi być niepustym tekstem.');
+  if (!isNonEmptyText(game.nameKey) && !isNonEmptyText(game.name)) {
+    errors.push('Pole "nameKey" (albo "name") musi być niepustym tekstem.');
   }
-  if (typeof game.description !== 'string' || game.description.trim() === '') {
-    errors.push('Pole "description" musi być niepustym tekstem.');
+  if (!isNonEmptyText(game.descriptionKey) && !isNonEmptyText(game.description)) {
+    errors.push('Pole "descriptionKey" (albo "description") musi być niepustym tekstem.');
   }
   if (typeof game.icon !== 'string' || game.icon.trim() === '') {
     errors.push('Pole "icon" musi zawierać emoji, np. "🎲".');
@@ -154,6 +155,25 @@ function validateHowToPlay(howToPlay) {
 
   const errors = [];
 
+  if (isNonEmptyText(howToPlay.goalKey)) {
+    if (
+      !Array.isArray(howToPlay.stepKeys) ||
+      howToPlay.stepKeys.length < 3 ||
+      howToPlay.stepKeys.length > 6
+    ) {
+      errors.push('Pole "howToPlay.stepKeys" musi być tablicą od 3 do 6 kluczy.');
+    } else if (howToPlay.stepKeys.some((key) => !isNonEmptyText(key))) {
+      errors.push('Każdy klucz w "howToPlay.stepKeys" musi być niepustym tekstem.');
+    }
+    if (
+      howToPlay.tipKeys !== undefined &&
+      (!Array.isArray(howToPlay.tipKeys) || howToPlay.tipKeys.some((key) => !isNonEmptyText(key)))
+    ) {
+      errors.push('Pole "howToPlay.tipKeys" musi być tablicą niepustych tekstów.');
+    }
+    return errors;
+  }
+
   if (typeof howToPlay.goal !== 'string' || howToPlay.goal.trim() === '') {
     errors.push('Pole "howToPlay.goal" musi być niepustym tekstem.');
   }
@@ -179,6 +199,51 @@ function validateHowToPlay(howToPlay) {
 }
 
 /**
+ * Czy wartość jest niepustym tekstem?
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isNonEmptyText(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+/**
+ * Buduje obiekt gry z getterami tłumaczeń. Gettery są leniwe, więc nazwa, opis
+ * i instrukcja zawsze pochodzą z aktualnie wybranego języka.
+ * @param {Object} rawGame
+ * @returns {Object}
+ */
+function localizeGame(rawGame) {
+  const howToPlayParams = rawGame.howToPlayParams ?? {};
+
+  return {
+    ...rawGame,
+    get name() {
+      return rawGame.nameKey ? t(rawGame.nameKey) : rawGame.name;
+    },
+    get description() {
+      return rawGame.descriptionKey ? t(rawGame.descriptionKey) : rawGame.description;
+    },
+    get howToPlay() {
+      const howToPlay = rawGame.howToPlay;
+
+      if (!howToPlay) {
+        return undefined;
+      }
+      if (!howToPlay.goalKey) {
+        return howToPlay;
+      }
+
+      return {
+        goal: t(howToPlay.goalKey, howToPlayParams),
+        steps: howToPlay.stepKeys.map((key) => t(key, howToPlayParams)),
+        tips: (howToPlay.tipKeys ?? []).map((key) => t(key, howToPlayParams)),
+      };
+    },
+  };
+}
+
+/**
  * Waliduje i zamraża definicję gry.
  * Rzuca polski błąd, gdy gra łamie kontrakt — dzięki temu literówka w polach gry
  * jest widoczna od razu po uruchomieniu HUB-a, a nie dopiero w trakcie rozgrywki.
@@ -192,5 +257,5 @@ export function defineGame(game) {
     throw new Error(`Nieprawidłowa definicja gry: ${errors.join(' ')}`);
   }
 
-  return Object.freeze({ ...game });
+  return Object.freeze(localizeGame(game));
 }

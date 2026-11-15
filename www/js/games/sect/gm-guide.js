@@ -6,75 +6,87 @@
  * z rzeczywistym interfejsem („Podgląd ról", „Tablica", „Cofnij krok", ...).
  */
 
-export const GUIDE_SECTIONS = Object.freeze([
-  Object.freeze({
-    title: 'Kim jesteś',
-    points: Object.freeze([
-      'Jesteś mistrzem gry. Nie grasz, nie masz roli i nie głosujesz. Prowadzisz grę i jako jedyny znasz wszystkie role.',
-      'Trzymaj telefon tak, żeby nikt nie widział ekranu.',
-      'Tajne informacje (role, wybory nocne, wynik sprawdzenia) pokazują się tylko po przytrzymaniu przycisku.',
-      'Na głos czytasz wyłącznie bloki „Powiedz na głos”. Blok „Zrób” jest tylko dla Ciebie.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Przed grą',
-    points: Object.freeze([
-      'Usiądźcie w kręgu. Każdy gracz dotyka swojego imienia na liście i sprawdza swoją rolę, nie pokazując jej innym.',
-      'Jeśli ktoś dotknął złego imienia, w „Podglądzie ról” użyj „Pozwól sprawdzić rolę ponownie”.',
-      'Gdy wszyscy znają role, odbierz telefon i dotknij „Przekazano mistrzowi gry”.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Noc',
-    points: Object.freeze([
-      'Wszyscy zamykają oczy i opuszczają głowy.',
-      'Kolejno budzisz sektę, lekarza i śledczego. Osoba obudzona otwiera oczy i pokazuje wybraną osobę gestem, bez słów.',
-      'Dotykasz imienia wskazanej osoby i zatwierdzasz przyciskiem „Zatwierdź”. Aplikacja sama ją oznacza: 🗡️ ofiara sekty, 💉 chroniony przez lekarza, 🔍 sprawdzony przez śledczego.',
-      'Śledczemu pokazujesz wynik gestem: kciuk w górę = sekciarz, kciuk w dół = nie sekciarz.',
-      'Gdy lekarz lub śledczy nie żyje, i tak „obudź” go słowami i odczekaj 5–8 sekund, żeby nikt nie poznał, że już go nie ma.',
-      'Pomyłka w wyborze? Użyj „Cofnij krok” na ekranie nocy.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Poranek',
-    points: Object.freeze([
-      'Aplikacja sama rozstrzyga noc: ofiara sekty ginie, chyba że lekarz ją ochronił.',
-      'Czytasz tylko ogłoszenie. Nie zdradzaj, kto był ofiarą ani kogo chronił lekarz, jeśli nikt nie zginął.',
-      'Zmarły dostaje oznaczenie 💀, nie rozmawia, nie głosuje i nie zdradza swojej roli, ale może w ciszy oglądać grę.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Dzień',
-    points: Object.freeze([
-      'Gracze dyskutują — możesz włączyć licznik czasu przyciskami „Start” i „Stop”.',
-      'Potem wspólnie, np. przez podniesienie rąk, wskazują osobę, która odpada, a Ty dotykasz jej imienia i „Zatwierdź”.',
-      'Przy remisie albo braku decyzji wybierz „Nikt nie odpada”.',
-      'Odczytujesz rolę odpadniętej osoby tak, jak podaje ekran.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Koniec gry',
-    points: Object.freeze([
-      'Mieszkańcy wygrywają, gdy nie ma już sekciarzy.',
-      'Sekta wygrywa, gdy sekciarzy jest tylu co pozostałych żywych graczy lub więcej.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Sytuacje sporne',
-    points: Object.freeze([
-      'Sekta nie może się dogadać: wybierz osobę wskazaną przez większość.',
-      'Lekarz może chronić siebie, ale nie tę samą osobę dwie noce z rzędu.',
-      'Śledczy sprawdza tylko żywych i nie siebie.',
-      'Pomyłka w wyborze: użyj „Cofnij krok” albo w „Tablicy” przycisk „Popraw ręcznie”.',
-    ]),
-  }),
-  Object.freeze({
-    title: 'Legenda oznaczeń',
-    points: Object.freeze([
-      '💀 nie żyje',
-      '🗡️ ofiara sekty',
-      '💉 chroniony przez lekarza',
-      '🔍 sprawdzony przez śledczego',
-    ]),
-  }),
+import { t } from '../../core/i18n.js';
+
+const GUIDE_DATA = Object.freeze([
+  {
+    title: 'games.sect.guide.roles.title',
+    points: [
+      'games.sect.guide.roles.point1',
+      'games.sect.guide.roles.point2',
+      'games.sect.guide.roles.point3',
+      'games.sect.guide.roles.point4',
+    ],
+  },
+  {
+    title: 'games.sect.guide.before.title',
+    points: [
+      'games.sect.guide.before.point1',
+      'games.sect.guide.before.point2',
+      'games.sect.guide.before.point3',
+    ],
+  },
+  {
+    title: 'games.sect.guide.night.title',
+    points: [
+      'games.sect.guide.night.point1',
+      'games.sect.guide.night.point2',
+      'games.sect.guide.night.point3',
+      'games.sect.guide.night.point4',
+      'games.sect.guide.night.point5',
+      'games.sect.guide.night.point6',
+    ],
+  },
+  {
+    title: 'games.sect.guide.morning.title',
+    points: [
+      'games.sect.guide.morning.point1',
+      'games.sect.guide.morning.point2',
+      'games.sect.guide.morning.point3',
+    ],
+  },
+  {
+    title: 'games.sect.guide.day.title',
+    points: [
+      'games.sect.guide.day.point1',
+      'games.sect.guide.day.point2',
+      'games.sect.guide.day.point3',
+      'games.sect.guide.day.point4',
+    ],
+  },
+  {
+    title: 'games.sect.guide.end.title',
+    points: ['games.sect.guide.end.point1', 'games.sect.guide.end.point2'],
+  },
+  {
+    title: 'games.sect.guide.disputes.title',
+    points: [
+      'games.sect.guide.disputes.point1',
+      'games.sect.guide.disputes.point2',
+      'games.sect.guide.disputes.point3',
+      'games.sect.guide.disputes.point4',
+    ],
+  },
+  {
+    title: 'games.sect.guide.legend.title',
+    points: [
+      'games.sect.guide.legend.point1',
+      'games.sect.guide.legend.point2',
+      'games.sect.guide.legend.point3',
+      'games.sect.guide.legend.point4',
+    ],
+  },
 ]);
+
+export const GUIDE_SECTIONS = Object.freeze(
+  GUIDE_DATA.map((section) =>
+    Object.freeze({
+      get title() {
+        return t(section.title);
+      },
+      get points() {
+        return section.points.map((key) => t(key));
+      },
+    }),
+  ),
+);

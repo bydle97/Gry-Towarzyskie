@@ -1,0 +1,39 @@
+# Hasła do gry "W pół słowa".
+#
+# Jak dodać hasło: dopisz jedno hasło w linii.
+# - hasło powinno dać się wytłumaczyć po jednym słowie — najlepiej rzeczownik
+#   lub krótkie wyrażenie (np. "Latarnia morska", "Drzewo genealogiczne"),
+# - puste linie oraz linie zaczynające się od # są ignorowane,
+# - duplikaty (bez rozróżniania wielkości liter) są pomijane,
+# - kolejność w pliku nie ma znaczenia.
+
+Pralka
+Latarnia morska
+Dentysta
+Sylwester
+Plaża
+Parasol
+Lodówka
+Rower
+Kominiarz
+Budzik
+Karuzela
+Kanapa
+Basen
+Wulkan
+Piłka nożna
+Księgarnia
+Piknik
+Śpiwór
+Lotnisko
+Urodziny
+Pociąg
+Strażak
+Kino
+Bałwan
+Zegarek
+Ognisko
+Fryzjer
+Schody
+Namiot
+Drzewo genealogiczne

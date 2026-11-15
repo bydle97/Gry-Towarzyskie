@@ -1,0 +1,39 @@
+# Words for the game "Half a Word".
+#
+# How to add a word: add one word per line.
+# - the word should be explainable one word at a time — a noun or a short
+#   phrase works best (e.g. "Lighthouse", "Family tree"),
+# - empty lines and lines starting with # are ignored,
+# - duplicates (case-insensitive) are skipped,
+# - the order of lines does not matter.
+
+Washing machine
+Lighthouse
+Dentist
+New Year's Eve
+Beach
+Umbrella
+Fridge
+Bicycle
+Chimney sweep
+Alarm clock
+Carousel
+Sofa
+Swimming pool
+Volcano
+Soccer
+Bookshop
+Picnic
+Sleeping bag
+Airport
+Birthday
+Train
+Firefighter
+Cinema
+Snowman
+Watch
+Campfire
+Hairdresser
+Stairs
+Tent
+Family tree

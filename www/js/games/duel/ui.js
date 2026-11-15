@@ -7,6 +7,7 @@
  * .team--first / .team--second (components/team-setup.js + components.css).
  */
 import { el } from '../../core/dom.js';
+import { formatNumber, t } from '../../core/i18n.js';
 import { TEAMS } from '../../components/team-setup.js';
 
 const STYLE_ELEMENT_ID = 'duel-styles';
@@ -345,19 +346,20 @@ export function createExitFooter(onRequestExit) {
   return el('button', {
     class: 'button button--secondary button--block',
     type: 'button',
-    text: 'Zakończ grę i wróć do HUB-a',
+    text: t('games.duel.exitFooter'),
     onClick: onRequestExit,
   });
 }
 
 /**
- * Format czasu w sekundach z jedną cyfrą po przecinku (przecinek polski), np. "8,4".
+ * Format czasu w sekundach z jedną cyfrą po przecinku, zgodnie z językiem
+ * (polskie „8,4”, angielskie „8.4”).
  * @param {number} milliseconds
  * @returns {string}
  */
 export function formatSeconds(milliseconds) {
   const seconds = Math.max(0, milliseconds) / 1000;
-  return seconds.toFixed(1).replace('.', ',');
+  return formatNumber(seconds, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 function teamById(teamId) {
@@ -380,7 +382,7 @@ function createScoreBoard(scores) {
     TEAMS.map((team) =>
       el('div', { class: `dl-score__item ${team.className}` }, [
         el('span', { class: 'dl-score__team', text: `${team.icon} ${team.name}` }),
-        el('span', { class: 'dl-score__value', text: String(scores[team.id]) }),
+        el('span', { class: 'dl-score__value', text: formatNumber(scores[team.id]) }),
       ]),
     ),
   );
@@ -396,7 +398,7 @@ function createTeamsSummary(teams) {
         el('div', { class: 'team-column__header' }, [
           el('span', { class: 'team-column__icon', 'aria-hidden': 'true', text: team.icon }),
           el('span', { class: 'team-column__name', text: team.name }),
-          el('span', { class: 'team-column__count', text: `${teams[team.id].length}` }),
+          el('span', { class: 'team-column__count', text: formatNumber(teams[team.id].length) }),
         ]),
         el(
           'ul',
@@ -431,19 +433,25 @@ export function renderIntroScreen({
   canRedrawCategory,
 }) {
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'dl-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
+    el('p', {
+      class: 'dl-progress',
+      text: t('games.duel.progress', {
+        current: formatNumber(roundNumber),
+        total: formatNumber(totalRounds),
+      }),
+    }),
 
     el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: 'Ping-pong' }),
+      el('h2', { class: 'panel__title', text: t('games.duel.introTitle') }),
       el('div', { class: 'dl-duelists' }, [
         createTeamLine(TEAMS[0], `${duelists.first} (${TEAMS[0].name})`),
         createTeamLine(TEAMS[1], `${duelists.second} (${TEAMS[1].name})`),
       ]),
-      el('p', { class: 'dl-hint', text: 'Połóżcie telefon między sobą.' }),
+      el('p', { class: 'dl-hint', text: t('games.duel.phoneHint') }),
     ]),
 
     el('div', { class: 'panel' }, [
-      el('p', { class: 'dl-category-label', text: 'Kategoria' }),
+      el('p', { class: 'dl-category-label', text: t('games.duel.categoryLabel') }),
       el('p', { class: 'dl-category', text: category }),
     ]),
 
@@ -451,7 +459,7 @@ export function renderIntroScreen({
       el('button', {
         class: 'button button--secondary button--compact',
         type: 'button',
-        text: canRedrawCategory ? 'Inna kategoria' : 'Brak innych',
+        text: canRedrawCategory ? t('games.duel.redraw') : t('games.duel.noOther'),
         disabled: !canRedrawCategory,
         onClick: onRedrawCategory,
       }),
@@ -460,7 +468,7 @@ export function renderIntroScreen({
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Gotowi',
+      text: t('games.duel.ready'),
       onClick: onReady,
     }),
   ]);
@@ -502,30 +510,30 @@ export function createClockScreen({
 
   const startLabel = el('p', {
     class: 'dl-controls__starter',
-    text: `Zaczyna: ${duelists[startingTeam.id]}`,
+    text: t('games.duel.starter', { name: duelists[startingTeam.id] }),
   });
   const startButton = el('button', {
     class: 'dl-control dl-control--start',
     type: 'button',
-    text: 'Start',
+    text: t('games.duel.start'),
     onClick: onStart,
   });
   const pauseButton = el('button', {
     class: 'dl-control',
     type: 'button',
-    text: 'Pauza',
+    text: t('games.duel.pause'),
     onClick: onPause,
   });
   const resumeButton = el('button', {
     class: 'dl-control',
     type: 'button',
-    text: 'Wznów',
+    text: t('games.duel.resume'),
     onClick: onResume,
   });
   const abortButton = el('button', {
     class: 'dl-control dl-control--abort',
     type: 'button',
-    text: 'Przerwij pojedynek',
+    text: t('games.duel.abort'),
     onClick: onAbort,
   });
 
@@ -546,7 +554,10 @@ export function createClockScreen({
 
   function createHalf(team, position) {
     const timeNode = el('span', { class: 'dl-half__time', text: formatSeconds(poolMs) });
-    const countNode = el('span', { class: 'dl-half__count', text: 'Wymieniono: 0' });
+    const countNode = el('span', {
+      class: 'dl-half__count',
+      text: t('games.duel.exchanged', { count: formatNumber(0) }),
+    });
     const barNode = el('span', { class: 'dl-half__bar' });
 
     const button = el(
@@ -570,7 +581,10 @@ export function createClockScreen({
           ]),
           el('span', { class: 'dl-half__name', text: duelists[team.id] }),
           timeNode,
-          el('span', { class: 'dl-half__category', text: `Kategoria: ${category}` }),
+          el('span', {
+            class: 'dl-half__category',
+            text: t('games.duel.categoryInline', { category }),
+          }),
           countNode,
           el('span', { class: 'dl-half__progress' }, [barNode]),
         ]),
@@ -608,7 +622,9 @@ export function createClockScreen({
       half.button.classList.toggle('dl-half--idle', !isActive);
       half.timeNode.textContent = formatSeconds(remaining);
       half.timeNode.classList.toggle('dl-half__time--low', remaining <= lowTimeMs);
-      half.countNode.textContent = `Wymieniono: ${model.counts[team.id]}`;
+      half.countNode.textContent = t('games.duel.exchanged', {
+        count: formatNumber(model.counts[team.id]),
+      });
       half.barNode.style.width = `${Math.max(0, Math.min(1, remaining / poolMs)) * 100}%`;
     }
 
@@ -653,24 +669,36 @@ export function renderResultScreen({
   onNext,
 }) {
   return el('div', { class: 'stack' }, [
-    el('p', { class: 'dl-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
+    el('p', {
+      class: 'dl-progress',
+      text: t('games.duel.progress', {
+        current: formatNumber(roundNumber),
+        total: formatNumber(totalRounds),
+      }),
+    }),
 
     el('div', { class: 'panel' }, [
-      el('p', { class: 'dl-category-label', text: 'Wynik pojedynku' }),
-      el('p', { class: `dl-winner ${winnerTeam.className}`, text: `Wygrywa ${winnerName}` }),
+      el('p', { class: 'dl-category-label', text: t('games.duel.resultLabel') }),
+      el('p', {
+        class: `dl-winner ${winnerTeam.className}`,
+        text: t('games.duel.winner', { name: winnerName }),
+      }),
       createTeamLine(winnerTeam, winnerTeam.name),
-      el('p', { class: 'dl-hint', text: 'Wymienione rzeczy:' }),
+      el('p', { class: 'dl-hint', text: t('games.duel.exchangedThings') }),
       el('ul', { class: 'dl-list' }, [
         el('li', { class: 'dl-list__row' }, [
           el('span', { text: `${duelists.first} (${TEAMS[0].name})` }),
-          el('span', { class: 'dl-list__value', text: String(counts.first) }),
+          el('span', { class: 'dl-list__value', text: formatNumber(counts.first) }),
         ]),
         el('li', { class: 'dl-list__row' }, [
           el('span', { text: `${duelists.second} (${TEAMS[1].name})` }),
-          el('span', { class: 'dl-list__value', text: String(counts.second) }),
+          el('span', { class: 'dl-list__value', text: formatNumber(counts.second) }),
         ]),
       ]),
-      el('p', { class: 'dl-hint', text: `Czas zwycięzcy: ${formatSeconds(winnerRemainingMs)} s` }),
+      el('p', {
+        class: 'dl-hint',
+        text: t('games.duel.winnerTime', { time: formatSeconds(winnerRemainingMs) }),
+      }),
     ]),
 
     createScoreBoard(scores),
@@ -678,7 +706,7 @@ export function renderResultScreen({
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: isLastRound ? 'Pokaż wynik' : 'Następna runda',
+      text: isLastRound ? t('games.duel.showResult') : t('games.duel.nextRound'),
       onClick: onNext,
     }),
   ]);
@@ -699,13 +727,16 @@ export function renderResultScreen({
 export function renderFinishedScreen({ teams, scores, winnerTeam, onPlayAgain, onNewTeams, onExit }) {
   return el('div', { class: 'stack' }, [
     el('div', { class: 'panel' }, [
-      el('p', { class: 'dl-category-label', text: 'Koniec gry' }),
+      el('p', { class: 'dl-category-label', text: t('games.duel.finishLabel') }),
       winnerTeam
         ? el('p', {
             class: `dl-final ${winnerTeam.className}`,
-            text: `${winnerTeam.icon} Wygrywa ${winnerTeam.name}`,
+            text: t('games.duel.winningTeam', {
+              icon: winnerTeam.icon,
+              team: winnerTeam.name,
+            }),
           })
-        : el('p', { class: 'dl-final', text: 'Remis' }),
+        : el('p', { class: 'dl-final', text: t('games.duel.draw') }),
     ]),
 
     createScoreBoard(scores),
@@ -714,19 +745,19 @@ export function renderFinishedScreen({ teams, scores, winnerTeam, onPlayAgain, o
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: 'Jeszcze raz (te same drużyny)',
+      text: t('games.duel.playAgain'),
       onClick: onPlayAgain,
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Nowy podział drużyn',
+      text: t('games.duel.newTeams'),
       onClick: onNewTeams,
     }),
     el('button', {
       class: 'button button--secondary button--block',
       type: 'button',
-      text: 'Wróć do HUB-a',
+      text: t('games.duel.backToHub'),
       onClick: onExit,
     }),
   ]);
@@ -765,7 +796,7 @@ export function renderConfirmDialog({ title, message, confirmLabel, onConfirm, o
         el('button', {
           class: 'button button--secondary button--block dl-dialog__cancel',
           type: 'button',
-          text: 'Nie, zostań',
+          text: t('games.duel.cancel'),
           onClick: onCancel,
         }),
       ],

@@ -3,6 +3,7 @@
  * Nic nie trafia do localStorage, sessionStorage, IndexedDB ani na dysk:
  * po odświeżeniu strony imiona i wybory znikają.
  */
+import { t } from './i18n.js';
 
 /** Maksymalna długość imienia gracza (znaki). */
 export const PLAYER_NAME_MAX_LENGTH = 20;
@@ -69,7 +70,7 @@ export function addPlayerName(rawName) {
  */
 export function updatePlayerName(index, rawName) {
   if (!Number.isInteger(index) || index < 0 || index >= state.playerNames.length) {
-    return { ok: false, error: 'Nie znaleziono gracza do edycji.' };
+    return { ok: false, error: t('players.errors.notFound') };
   }
 
   const name = preparePlayerName(rawName);
@@ -115,10 +116,10 @@ function preparePlayerName(value) {
  */
 function checkPlayerName(name, excludeIndex) {
   if (name === '') {
-    return 'Podaj imię gracza.';
+    return t('players.errors.empty');
   }
   if (name.length > PLAYER_NAME_MAX_LENGTH) {
-    return `Imię może mieć maksymalnie ${PLAYER_NAME_MAX_LENGTH} znaków.`;
+    return t('players.errors.tooLong', { max: PLAYER_NAME_MAX_LENGTH });
   }
 
   const key = name.toLocaleLowerCase('pl');
@@ -127,7 +128,7 @@ function checkPlayerName(name, excludeIndex) {
   );
 
   if (duplicate) {
-    return `Gracz o imieniu „${name}” jest już na liście.`;
+    return t('players.errors.duplicate', { name });
   }
 
   return '';

@@ -12,6 +12,7 @@
  *   mountTeamSetup({ container: root, players, onConfirm: (teams) => startGame(teams) });
  */
 import { clear, el } from '../core/dom.js';
+import { formatNumber, t, tPlural } from '../core/i18n.js';
 import { shuffle } from '../core/random.js';
 
 /**
@@ -19,8 +20,22 @@ import { shuffle } from '../core/random.js';
  * a className nadaje kolor przez zmienną CSS --team-color.
  */
 export const TEAMS = Object.freeze([
-  Object.freeze({ id: 'first', name: 'Drużyna 1', icon: '🔵', className: 'team--first' }),
-  Object.freeze({ id: 'second', name: 'Drużyna 2', icon: '🟠', className: 'team--second' }),
+  Object.freeze({
+    id: 'first',
+    icon: '🔵',
+    className: 'team--first',
+    get name() {
+      return t('teams.first');
+    },
+  }),
+  Object.freeze({
+    id: 'second',
+    icon: '🟠',
+    className: 'team--second',
+    get name() {
+      return t('teams.second');
+    },
+  }),
 ]);
 
 /** Minimalna liczba osób w drużynie, żeby można było zacząć grę. */
@@ -77,15 +92,9 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
     return teams.first.length >= minTeamSize && teams.second.length >= minTeamSize;
   }
 
-  /** Poprawna forma liczebnika w komunikacie o minimum w drużynie. */
-  function getMinimumLabel() {
-    if (minTeamSize === 1) {
-      return '1 osobę';
-    }
-    if (minTeamSize >= 2 && minTeamSize <= 4) {
-      return `${minTeamSize} osoby`;
-    }
-    return `${minTeamSize} osób`;
+  /** Komunikat o minimalnej liczbie osób w drużynie (odmiana przez Intl.PluralRules). */
+  function getMinimumMessage() {
+    return tPlural('teams.minimum', minTeamSize);
   }
 
   function render() {
@@ -94,14 +103,14 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
     container.append(
       el('p', {
         class: 'screen__intro',
-        text: 'Kliknij imię, aby przenieść gracza do drugiej drużyny.',
+        text: t('teams.moveHint'),
       }),
       el('div', { class: 'team-columns' }, TEAMS.map(createTeamColumn)),
       createMessages(),
       el('button', {
         class: 'button button--secondary button--block',
         type: 'button',
-        text: 'Losuj ponownie',
+        text: t('teams.shuffle'),
         onClick: () => {
           shuffleTeams();
           render();
@@ -110,7 +119,7 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
       el('button', {
         class: 'button button--primary button--block',
         type: 'button',
-        text: 'Zaczynamy',
+        text: t('teams.start'),
         disabled: !canStart(),
         onClick: () => {
           if (!canStart()) {
@@ -132,7 +141,7 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
         el('span', { class: 'team-column__count', text: `${names.length}` }),
       ]),
       names.length === 0
-        ? el('p', { class: 'team-column__empty', text: 'Brak graczy' })
+        ? el('p', { class: 'team-column__empty', text: t('teams.empty') })
         : el(
             'ul',
             { class: 'team-column__list' },
@@ -142,7 +151,7 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
                   class: 'team-name-button',
                   type: 'button',
                   text: name,
-                  'aria-label': `Przenieś ${name} do drugiej drużyny`,
+                  'aria-label': t('teams.moveAria', { name }),
                   onClick: () => movePlayer(team.id, name),
                 }),
               ]),
@@ -158,21 +167,21 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
       messages.push(
         el('p', {
           class: 'form-error',
-          text: `Każda drużyna musi mieć co najmniej ${getMinimumLabel()}.`,
+          text: getMinimumMessage(),
         }),
       );
     } else if (teams.first.length !== teams.second.length) {
       messages.push(
         el('p', {
           class: 'stepper__hint',
-          text: 'Drużyny są nierówne. Gra potrwa tyle rund, ile osób ma większa drużyna.',
+          text: t('teams.uneven'),
         }),
       );
     } else {
       messages.push(
         el('p', {
           class: 'stepper__hint',
-          text: `Liczba rund: ${getRoundsCount()}.`,
+          text: t('teams.rounds', { count: formatNumber(getRoundsCount()) }),
         }),
       );
     }

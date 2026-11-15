@@ -1,39 +1,80 @@
 /**
- * Punkt wejścia HUB-a: podłącza router do szkieletu z index.html,
- * rejestruje ekrany i startuje od ekranu głównego (tytuł + gracze + gry).
+ * Punkt wejścia HUB-a: inicjalizuje tłumaczenia, podłącza router do szkieletu
+ * z index.html, rejestruje ekrany i startuje od ekranu głównego.
  */
 import { getGameById } from './core/games-registry.js';
-import { initRouter, navigate, registerScreen } from './core/router.js';
+import { init as initI18n, onLanguageChange, t } from './core/i18n.js';
+import { initRouter, navigate, refreshCurrentScreen, registerScreen } from './core/router.js';
 import { renderHomeScreen } from './screens/home-screen.js';
 import { renderDetailsScreen } from './screens/details-screen.js';
 import { renderGameScreen } from './screens/game-screen.js';
 
-const container = document.getElementById('app');
-const titleElement = document.getElementById('screen-title');
-const backButton = document.getElementById('back-button');
-const header = document.querySelector('.app-header');
+/** Teksty zapisane bezpośrednio w index.html (poza routerem). */
+function applyStaticTexts() {
+  const backButton = document.getElementById('back-button');
 
-if (!container || !titleElement || !backButton || !header) {
-  throw new Error('Brak elementów szkieletu w index.html: .app-header, #app, #screen-title, #back-button.');
+  if (backButton) {
+    backButton.setAttribute('aria-label', t('app.backAria'));
+  }
+
+  const noscript = document.getElementById('noscript-message');
+
+  if (noscript) {
+    noscript.textContent = t('app.noscript');
+  }
 }
 
-initRouter({ container, titleElement, backButton, header });
+async function start() {
+  await initI18n();
 
-// Ekran główny ma własny, duży tytuł — nagłówek aplikacji jest na nim ukryty.
-registerScreen('home', {
-  title: 'Gry Towarzyskie',
-  hideHeader: true,
-  render: renderHomeScreen,
+  const container = document.getElementById('app');
+  const titleElement = document.getElementById('screen-title');
+  const backButton = document.getElementById('back-button');
+  const header = document.querySelector('.app-header');
+
+  if (!container || !titleElement || !backButton || !header) {
+    throw new Error(
+      'Brak elementów szkieletu w index.html: .app-header, #app, #screen-title, #back-button.',
+    );
+  }
+
+  initRouter({ container, titleElement, backButton, header });
+
+  // Ekran główny ma własny, duży tytuł — nagłówek aplikacji jest na nim ukryty.
+  registerScreen('home', {
+    title: () => t('hub.screenTitle'),
+    hideHeader: true,
+    render: renderHomeScreen,
+  });
+
+  registerScreen('details', {
+    title: ({ gameId }) => getGameById(gameId)?.name ?? t('details.fallbackTitle'),
+    render: renderDetailsScreen,
+  });
+
+  registerScreen('game', {
+    title: ({ gameId }) => getGameById(gameId)?.name ?? t('game.fallbackTitle'),
+    render: renderGameScreen,
+  });
+
+  // Język można zmienić tylko na ekranie głównym; po zmianie przerysowujemy
+  // bieżący ekran (na ekranie głównym to właśnie ten z przełącznikiem).
+  onLanguageChange(() => {
+    applyStaticTexts();
+    refreshCurrentScreen();
+  });
+
+  applyStaticTexts();
+  navigate('home', {}, { reset: true });
+}
+
+start().catch((error) => {
+  console.error('Błąd uruchamiania aplikacji:', error);
+
+  const container = document.getElementById('app');
+
+  if (container) {
+    // Komunikat awaryjny przed/bez i18n — aplikacja nie ma wtedy tłumaczeń.
+    container.textContent = 'Nie udało się uruchomić aplikacji. Odśwież stronę.';
+  }
 });
-
-registerScreen('details', {
-  title: ({ gameId }) => getGameById(gameId)?.name ?? 'Szczegóły gry',
-  render: renderDetailsScreen,
-});
-
-registerScreen('game', {
-  title: ({ gameId }) => getGameById(gameId)?.name ?? 'Gra',
-  render: renderGameScreen,
-});
-
-navigate('home', {}, { reset: true });

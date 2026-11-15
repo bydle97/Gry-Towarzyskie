@@ -1,0 +1,33 @@
+# Pytania do gry "Na oko".
+#
+# Jak dodać pytanie: dopisz jedną linię w formacie:
+#   Pytanie | odpowiedź | jednostka
+# - odpowiedź to liczba całkowita (może być ujemna),
+# - jednostka jest opcjonalna, np. "jaj", "km"; możesz ją pominąć,
+# - pytanie NIE MOŻE zawierać znaku | (kreska rozdziela pola),
+# - spacje wokół znaku | są ignorowane,
+# - puste linie oraz linie zaczynające się od # są ignorowane,
+# - duplikaty (bez rozróżniania wielkości liter) są pomijane,
+# - kolejność w pliku nie ma znaczenia.
+
+Ile jaj rocznie składa kura nioska w hodowli towarowej? | 300 | jaj
+W którym roku skonstruowano pierwszy samodzielny toster elektryczny? | 1893
+Ile wysp liczy Norwegia według danych norweskiego urzędu kartograficznego? | 239057 | wysp
+W którym roku powstała pierwsza kamera internetowa, która obserwowała dzbanek z kawą na Uniwersytecie Cambridge? | 1991
+W którym roku wysłano pierwszą wiadomość SMS w historii? | 1992
+W którym roku zainstalowano bankomat uznawany za pierwszy na świecie? | 1967
+W którym roku otwarto pierwsze publiczne akwarium na świecie? | 1853
+W którym roku opublikowano pierwszą nowoczesną krzyżówkę? | 1913
+W którym roku zbudowano pierwszy prototyp myszy komputerowej? | 1964
+W którym roku po raz pierwszy zaprezentowano grę komputerową „Tennis for Two”? | 1958
+W którym roku powstał Creeper — pierwszy robak komputerowy? | 1971
+W którym roku wystrzelono Sputnika 1, pierwszego sztucznego satelitę Ziemi? | 1957
+Ile minut trwała wojna brytyjsko-zanzibarska, uznawana za najkrótszą w historii? | 38 | minut
+W którym roku uruchomiono pierwszą pasażerską kolej parową na świecie? | 1825
+W którym roku zainstalowano pierwszy pasażerski dźwig osobowy zaprojektowany przez Elishę Otisa? | 1857
+W którym roku Louis-Sébastien Lenormand wykonał pierwszy odnotowany publiczny skok ze spadochronem? | 1783
+W którym roku powstała pierwsza kolejka górska na Coney Island w Nowym Jorku? | 1884
+Ile egzemplarzy pierwszego znaczka pocztowego Penny Black wydrukowano? | 68808000 | egzemplarzy
+Ile sekund trwał pierwszy film opublikowany na YouTube, zatytułowany „Me at the zoo”? | 19 | sekund
+Przez ile dni Sputnik 1 nadawał sygnał radiowy po wystrzeleniu? | 22 | dni
+Ile pikseli miała szerokość obrazu pierwszej kamery internetowej w Cambridge? | 128 | pikseli

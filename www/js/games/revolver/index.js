@@ -12,11 +12,13 @@
  *    nie powtarzają haseł, dopóki pula się nie wyczerpie,
  *  - brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
+import { loadLines } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear, el } from '../../core/dom.js';
+import { getLanguage, t } from '../../core/i18n.js';
 import { shuffle } from '../../core/random.js';
+import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
 import { TEAMS, mountTeamSetup } from '../../components/team-setup.js';
-import { PHRASES } from './phrases.js';
 import {
   createExitFooter,
   ensureStyles,
@@ -31,6 +33,9 @@ import {
 /** Id puli haseł w content-pool.js — wspólna dla wszystkich partii w tej sesji. */
 const PHRASE_POOL_ID = 'revolver';
 
+/** Pule różnych języków są niezależne, np. "revolver:pl" i "revolver:en". */
+const getPhrasePoolId = () => `${PHRASE_POOL_ID}:${getLanguage()}`;
+
 /** Klucz hasła w puli to sam tekst hasła. */
 const getPhraseKey = (phrase) => phrase;
 
@@ -43,6 +48,7 @@ const MAX_REDRAWS_PER_ROUND = 2;
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
  *   players: string[],
+ *   phrases: string[],
  *   teams: {first: string[], second: string[]} | null,
  *   order: {first: string[], second: string[]} | null,
  *   rounds: number,
@@ -53,7 +59,9 @@ const MAX_REDRAWS_PER_ROUND = 2;
  *   scores: {first: number, second: number},
  *   explainers: {first: string, second: string} | null,
  *   lastWinnerId: string | null,
- *   phase: 'teams' | 'intro' | 'word' | 'result' | 'finished',
+ *   phase: 'loading' | 'load-error' | 'teams' | 'intro' | 'word' | 'result' | 'finished',
+ *   loadError: string,
+ *   loadToken: number,
  *   exitRequested: boolean,
  * }}
  */
@@ -61,25 +69,22 @@ let state = null;
 
 const game = {
   id: 'revolver',
-  name: 'W pół słowa',
-  description: 'Dwie drużyny, jedno hasło, po jednym słowie na zmianę.',
+  nameKey: 'games.revolver.name',
+  descriptionKey: 'games.revolver.description',
   icon: '🗣️',
   minPlayers: 4,
   maxPlayers: 20,
 
   howToPlay: {
-    goal: 'Twoja drużyna ma pierwsza odgadnąć hasło.',
-    steps: [
-      'Gracze dzielą się na dwie drużyny — losowo albo ręcznie, klikając imiona. Każda drużyna musi mieć co najmniej 2 osoby.',
-      'W każdej rundzie telefon biorą dwie osoby, po jednej z każdej drużyny, i dotykają „Pokaż hasło". Reszta odwraca wzrok.',
-      'Obie osoby widzą to samo hasło i na zmianę mówią po jednym słowie. Pierwsze słowo mówi drużyna pokazana na ekranie.',
-      'Gdy któraś drużyna odgadnie, dotknijcie „Odgadła Drużyna 1" albo „Odgadła Drużyna 2". Jeśli nikt nie odgadł lub ktoś oszukiwał — „Unieważnij (0 pkt)".',
-      'Gra trwa tyle rund, ile osób ma większa drużyna. Punkt za każdą wygraną rundę, a wygrywa drużyna z większą liczbą punktów.',
+    goalKey: 'games.revolver.goal',
+    stepKeys: [
+      'games.revolver.steps.1',
+      'games.revolver.steps.2',
+      'games.revolver.steps.3',
+      'games.revolver.steps.4',
+      'games.revolver.steps.5',
     ],
-    tips: [
-      'Szczegóły, np. czy wolno używać słów z hasła, ustalcie przed grą.',
-      'Ekran „Podaj telefon dalej" jest po to, żeby nikt nie zobaczył hasła przed czasem.',
-    ],
+    tipKeys: ['games.revolver.tips.1', 'games.revolver.tips.2'],
   },
 
   /**
@@ -94,6 +99,7 @@ const game = {
       container,
       api,
       players: [...players],
+      phrases: [],
       teams: null,
       order: null,
       rounds: 0,
@@ -104,11 +110,14 @@ const game = {
       scores: { first: 0, second: 0 },
       explainers: null,
       lastWinnerId: null,
-      phase: 'teams',
+      phase: 'loading',
+      loadError: '',
+      loadToken: 0,
       exitRequested: false,
     };
 
     renderState();
+    loadContent();
   },
 
   unmount() {
@@ -122,6 +131,52 @@ export default game;
 /** Losowa drużyna (używana do wyboru, kto zaczyna pierwszą rundę). */
 function randomTeamId() {
   return shuffle(TEAMS)[0].id;
+}
+
+/** Wczytuje hasła z pliku; ekran podziału na drużyny pojawia się po sukcesie. */
+async function loadContent() {
+  const sessionState = state;
+
+  if (!sessionState) {
+    return;
+  }
+
+  const token = sessionState.loadToken + 1;
+  sessionState.loadToken = token;
+  sessionState.phase = 'loading';
+  sessionState.loadError = '';
+  renderState();
+
+  try {
+    const phrases = await loadLines('phrases');
+
+    if (state !== sessionState || sessionState.loadToken !== token) {
+      return;
+    }
+
+    if (phrases.length === 0) {
+      showLoadError(t('games.revolver.loadEmpty'));
+      return;
+    }
+
+    state.phrases = phrases;
+    state.phase = 'teams';
+    renderState();
+  } catch (error) {
+    if (state !== sessionState || sessionState.loadToken !== token) {
+      return;
+    }
+
+    console.error('Nie udało się wczytać haseł gry "W pół słowa":', error);
+    showLoadError(t('games.revolver.loadError'));
+  }
+}
+
+/** Pokazuje ekran błędu wczytywania z ponowieniem i wyjściem do HUB-a. */
+function showLoadError(message) {
+  state.phase = 'load-error';
+  state.loadError = message;
+  renderState();
 }
 
 function teamById(teamId) {
@@ -181,6 +236,23 @@ function renderState() {
   clear(container);
   window.scrollTo(0, 0);
 
+  if (state.phase === 'loading') {
+    container.append(renderLoadingScreen());
+    container.append(createExitFooter(requestExit));
+    return;
+  }
+
+  if (state.phase === 'load-error') {
+    container.append(
+      renderLoadErrorScreen({
+        message: state.loadError,
+        onRetry: loadContent,
+        onExit: () => state.api.exit(),
+      }),
+    );
+    return;
+  }
+
   if (state.phase === 'teams') {
     renderTeamsPhase();
     return;
@@ -210,7 +282,7 @@ function renderState() {
         onRoundCancelled: handleRoundCancelled,
         onRedrawWord: redrawWord,
         redrawsLeft: state.redrawsLeft,
-        canRedrawWord: hasOther(PHRASE_POOL_ID, PHRASES, getPhraseKey, state.word),
+        canRedrawWord: hasOther(getPhrasePoolId(), state.phrases, getPhraseKey, state.word),
       }),
     );
     container.append(createExitFooter(requestExit));
@@ -282,7 +354,7 @@ function startMatch(teams) {
 }
 
 function prepareRound() {
-  state.word = drawNext(PHRASE_POOL_ID, PHRASES, getPhraseKey) ?? '—';
+  state.word = drawNext(getPhrasePoolId(), state.phrases, getPhraseKey) ?? '—';
   state.redrawsLeft = MAX_REDRAWS_PER_ROUND;
   state.explainers = {
     first: state.order.first[state.roundIndex % state.order.first.length],
@@ -310,7 +382,7 @@ function redrawWord() {
     return;
   }
 
-  const next = redraw(PHRASE_POOL_ID, PHRASES, getPhraseKey, state.word);
+  const next = redraw(getPhrasePoolId(), state.phrases, getPhraseKey, state.word);
 
   if (!next) {
     return;

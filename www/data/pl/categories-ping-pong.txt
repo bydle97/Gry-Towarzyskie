@@ -1,0 +1,39 @@
+# Kategorie do gry "Ping-pong".
+#
+# Jak dodać kategorię: dopisz jedną kategorię w linii.
+# - kategoria powinna być zbiorem rzeczy, które da się wymieniać po jednej
+#   (im więcej typowych przykładów, tym ciekawszy pojedynek),
+# - puste linie oraz linie zaczynające się od # są ignorowane,
+# - duplikaty (bez rozróżniania wielkości liter) są pomijane,
+# - kolejność w pliku nie ma znaczenia.
+
+Marki samochodów
+Owoce
+Warzywa
+Zwierzęta domowe i gospodarskie
+Zwierzęta egzotyczne
+Ptaki
+Ryby
+Państwa w Europie
+Stolice świata
+Miasta w Polsce
+Rzeki
+Zawody
+Dania kuchni polskiej
+Słodycze
+Napoje
+Instrumenty muzyczne
+Sporty
+Dyscypliny olimpijskie
+Rzeczy w kuchni
+Narzędzia
+Meble
+Ubrania
+Kwiaty
+Drzewa
+Środki transportu
+Rzeczy w łazience
+Rzeczy w plecaku
+Rzeczy na plaży
+Rzeczy w szkole
+Rzeczy, które są zielone

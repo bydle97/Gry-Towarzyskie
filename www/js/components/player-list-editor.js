@@ -8,6 +8,7 @@
  * focus i można dodawać kolejne osoby bez zamykania klawiatury.
  */
 import { clear, el } from '../core/dom.js';
+import { formatNumber, t } from '../core/i18n.js';
 import {
   PLAYER_NAME_MAX_LENGTH,
   addPlayerName,
@@ -44,7 +45,10 @@ export function mountPlayerListEditor({ container, onChange }) {
     const players = getPlayerNames();
 
     container.append(
-      el('h2', { class: 'panel__title', text: `Lista graczy: ${players.length}` }),
+      el('h2', {
+        class: 'panel__title',
+        text: t('players.heading', { count: formatNumber(players.length) }),
+      }),
       createAddForm(),
       createErrorBox(),
       createList(players),
@@ -74,7 +78,7 @@ export function mountPlayerListEditor({ container, onChange }) {
         el('label', {
           class: 'visually-hidden',
           for: 'player-name-input',
-          text: 'Imię gracza',
+          text: t('players.nameLabel'),
         }),
         el('div', { class: 'row' }, [
           el('input', {
@@ -83,13 +87,13 @@ export function mountPlayerListEditor({ container, onChange }) {
             type: 'text',
             maxLength: PLAYER_NAME_MAX_LENGTH,
             autocomplete: 'off',
-            placeholder: 'Imię gracza',
+            placeholder: t('players.namePlaceholder'),
             value: view.draftName,
             onInput: (event) => {
               view.draftName = event.target.value;
             },
           }),
-          el('button', { class: 'button button--primary', type: 'submit', text: 'Dodaj' }),
+          el('button', { class: 'button button--primary', type: 'submit', text: t('players.add') }),
         ]),
       ],
     );
@@ -108,7 +112,7 @@ export function mountPlayerListEditor({ container, onChange }) {
     if (players.length === 0) {
       return el('p', {
         class: 'player-list-editor__empty',
-        text: 'Dodaj graczy, aby odblokować gry.',
+        text: t('players.empty'),
       });
     }
 
@@ -131,15 +135,15 @@ export function mountPlayerListEditor({ container, onChange }) {
         el('button', {
           class: 'button button--secondary button--compact',
           type: 'button',
-          text: 'Edytuj',
-          'aria-label': `Edytuj gracza ${name}`,
+          text: t('players.edit'),
+          'aria-label': t('players.editAria', { name }),
           onClick: () => startEdit(index),
         }),
         el('button', {
           class: 'button button--secondary button--compact',
           type: 'button',
-          text: 'Usuń',
-          'aria-label': `Usuń gracza ${name}`,
+          text: t('players.remove'),
+          'aria-label': t('players.removeAria', { name }),
           onClick: () => handleRemove(index),
         }),
       ]),
@@ -161,7 +165,7 @@ export function mountPlayerListEditor({ container, onChange }) {
         el('label', {
           class: 'visually-hidden',
           for: 'edit-player-input',
-          text: `Imię gracza ${index + 1}`,
+          text: t('players.editLabel', { count: formatNumber(index + 1) }),
         }),
         el('input', {
           class: 'input',
@@ -178,12 +182,12 @@ export function mountPlayerListEditor({ container, onChange }) {
           el('button', {
             class: 'button button--primary button--compact',
             type: 'submit',
-            text: 'Zapisz',
+            text: t('players.save'),
           }),
           el('button', {
             class: 'button button--secondary button--compact',
             type: 'button',
-            text: 'Anuluj',
+            text: t('players.cancel'),
             onClick: cancelEdit,
           }),
         ]),

@@ -7,6 +7,7 @@
  * swoje timery w kontrolowany sposób.
  */
 import { clear, el } from './dom.js';
+import { t } from './i18n.js';
 
 /** @type {Map<string, {title: string|((params: Object) => string), render: Function, hideHeader: boolean}>} */
 const screens = new Map();
@@ -89,6 +90,19 @@ export function getCurrentRoute() {
   return currentRoute ? { name: currentRoute.name, params: { ...currentRoute.params } } : null;
 }
 
+/**
+ * Przerysowuje bieżący ekran bez zmiany historii (np. po zmianie języka).
+ * @returns {boolean} false, gdy żaden ekran nie jest jeszcze pokazany
+ */
+export function refreshCurrentScreen() {
+  if (!currentRoute) {
+    return false;
+  }
+
+  renderRoute({ name: currentRoute.name, params: { ...currentRoute.params } });
+  return true;
+}
+
 function renderRoute(route) {
   if (!shell) {
     throw new Error('Router nie został zainicjowany: wywołaj initRouter() w main.js.');
@@ -128,7 +142,7 @@ function renderRoute(route) {
 
 function resolveTitle(screen, params) {
   if (!screen) {
-    return 'Ekran niedostępny';
+    return t('router.missingTitle');
   }
   return typeof screen.title === 'function' ? screen.title(params ?? {}) : screen.title;
 }
@@ -137,12 +151,12 @@ function renderMissingScreen(container, name) {
   container.append(
     el('div', { class: 'empty-state' }, [
       el('span', { class: 'empty-state__icon', 'aria-hidden': 'true', text: '🧭' }),
-      el('p', { class: 'empty-state__title', text: 'Ten ekran nie jest dostępny' }),
-      el('p', { text: `Ekran "${name}" nie został zarejestrowany w routerze.` }),
+      el('p', { class: 'empty-state__title', text: t('router.missingHeading') }),
+      el('p', { text: t('router.missingText', { name }) }),
       el('button', {
         class: 'button button--primary button--block',
         type: 'button',
-        text: 'Wróć do listy gier',
+        text: t('router.backHome'),
         onClick: () => navigate('home', {}, { reset: true }),
       }),
     ]),

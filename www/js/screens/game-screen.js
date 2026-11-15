@@ -4,6 +4,8 @@
  * Router wywoła zwrócony cleanup przed pokazaniem innego ekranu — wtedy pada unmount().
  */
 import { el } from '../core/dom.js';
+import { formatNumber, t } from '../core/i18n.js';
+import { formatPlayersRange } from '../core/format.js';
 import { createGameApi } from '../core/game-api.js';
 import { getGameById } from '../core/games-registry.js';
 import { navigate } from '../core/router.js';
@@ -19,9 +21,9 @@ export function renderGameScreen({ container, params }) {
   if (!game) {
     container.append(
       createMessageBox({
-        title: 'Nie znaleziono gry',
-        text: 'Ta gra nie istnieje w rejestrze gier.',
-        actionLabel: 'Wróć do listy gier',
+        title: t('game.missingTitle'),
+        text: t('game.missingText'),
+        actionLabel: t('game.backToGames'),
         onAction: () => navigate('home', {}, { reset: true }),
       }),
     );
@@ -34,9 +36,12 @@ export function renderGameScreen({ container, params }) {
   if (!playersOk) {
     container.append(
       createMessageBox({
-        title: 'Zła liczba graczy',
-        text: `Wymagany zakres graczy: ${game.minPlayers}–${game.maxPlayers}. Wybrano: ${players.length}.`,
-        actionLabel: 'Wróć do szczegółów gry',
+        title: t('game.wrongPlayersTitle'),
+        text: t('game.wrongPlayersText', {
+          range: formatPlayersRange(game.minPlayers, game.maxPlayers),
+          count: formatNumber(players.length),
+        }),
+        actionLabel: t('game.backToDetails'),
         onAction: () => navigate('details', { gameId: game.id }, { replace: true }),
       }),
     );
@@ -65,9 +70,9 @@ export function renderGameScreen({ container, params }) {
     }
     container.append(
       createMessageBox({
-        title: 'Nie udało się uruchomić gry',
-        text: 'Gra zgłosiła błąd podczas startu. Wróć do szczegółów i spróbuj ponownie.',
-        actionLabel: 'Wróć do szczegółów gry',
+        title: t('game.startErrorTitle'),
+        text: t('game.startErrorText'),
+        actionLabel: t('game.backToDetails'),
         onAction: () => navigate('details', { gameId: game.id }, { replace: true }),
       }),
     );

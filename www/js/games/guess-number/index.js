@@ -12,10 +12,12 @@
  *    partie nie powtarzają pytań, dopóki pula się nie wyczerpie,
  *  - brak punktów i brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
+import { loadQuestions } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear } from '../../core/dom.js';
+import { getLanguage, t } from '../../core/i18n.js';
 import { shuffle } from '../../core/random.js';
-import { QUESTIONS } from './questions.js';
+import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
 import {
   createExitFooter,
   ensureStyles,
@@ -32,8 +34,11 @@ const QUESTIONS_PER_GAME = 8;
 /** Id puli pytań w content-pool.js — wspólna dla wszystkich partii w tej sesji. */
 const QUESTION_POOL_ID = 'guess-number';
 
-/** Klucz pytania w puli to jego unikalne id. */
-const getQuestionKey = (question) => question.id;
+/** Pule różnych języków są niezależne, np. "guess-number:pl" i "guess-number:en". */
+const getQuestionPoolId = () => `${QUESTION_POOL_ID}:${getLanguage()}`;
+
+/** Klucz pytania w puli to tekst pytania (pliki tekstowe nie mają identyfikatorów). */
+const getQuestionKey = (question) => question.text;
 
 /**
  * Stan jednej partii.
@@ -41,14 +46,17 @@ const getQuestionKey = (question) => question.id;
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
  *   players: string[],
- *   question: {id: string, text: string, answer: number, unit: string} | null,
+ *   questions: Array<{text: string, answer: number, unit: string}>,
+ *   question: {text: string, answer: number, unit: string} | null,
  *   totalQuestions: number,
  *   questionIndex: number,
  *   order: number[],
  *   turnIndex: number,
  *   guesses: Array<{playerIndex: number, value: number}>,
  *   ranking: Array<{playerIndex: number, value: number, distance: number}>,
- *   phase: 'turn' | 'ready' | 'answer' | 'finished',
+ *   phase: 'loading' | 'load-error' | 'turn' | 'ready' | 'answer' | 'finished',
+ *   loadError: string,
+ *   loadToken: number,
  *   exitRequested: boolean,
  * }}
  */
@@ -56,25 +64,22 @@ let state = null;
 
 const game = {
   id: 'guess-number',
-  name: 'Na oko',
-  description: 'Zgadnij liczbę. Kto będzie najbliżej?',
+  nameKey: 'games.guess-number.name',
+  descriptionKey: 'games.guess-number.description',
   icon: '🎯',
   minPlayers: 2,
   maxPlayers: 10,
 
   howToPlay: {
-    goal: 'Zgadnij liczbę z pytania i bądź najbliżej prawdziwej odpowiedzi.',
-    steps: [
-      'Jedna osoba czyta pytanie na głos. Odpowiedzią jest liczba: ilość, rok albo miara.',
-      'Telefon krąży po kolei po graczach. Każdy wpisuje swoją liczbę i dotyka „Zatwierdź".',
-      'Gdy wszyscy obstawią, dotknijcie „Pokaż odpowiedź" — zobaczycie prawdziwą odpowiedź i ranking od najbliższego typu.',
-      'Ranking pokazuje każdy typ i różnicę od odpowiedzi. Najbliższy gracz zaczyna następne pytanie, potem kolejni według rankingu.',
-      'Gdy pytania się skończą, zobaczycie ekran „Koniec" — partia jest skończona i wracacie do HUB-a.',
+    goalKey: 'games.guess-number.goal',
+    stepKeys: [
+      'games.guess-number.steps.1',
+      'games.guess-number.steps.2',
+      'games.guess-number.steps.3',
+      'games.guess-number.steps.4',
+      'games.guess-number.steps.5',
     ],
-    tips: [
-      'Typy poprzednich graczy są widoczne na liście, więc kolejność ma znaczenie.',
-      'Możecie obstawić tę samą liczbę co poprzednik — to nie jest błąd.',
-    ],
+    tipKeys: ['games.guess-number.tips.1', 'games.guess-number.tips.2'],
   },
 
   /**
@@ -89,19 +94,22 @@ const game = {
       container,
       api,
       players: [...players],
-      question: drawNext(QUESTION_POOL_ID, QUESTIONS, getQuestionKey),
-      totalQuestions: Math.min(QUESTIONS_PER_GAME, QUESTIONS.length),
+      questions: [],
+      question: null,
+      totalQuestions: 0,
       questionIndex: 0,
-      // Pierwsza runda: losowa kolejność graczy (indeksy w tablicy players).
-      order: shuffle(players.map((_, index) => index)),
+      order: [],
       turnIndex: 0,
       guesses: [],
       ranking: [],
-      phase: 'turn',
+      phase: 'loading',
+      loadError: '',
+      loadToken: 0,
       exitRequested: false,
     };
 
     renderState();
+    loadContent();
   },
 
   unmount() {
@@ -114,6 +122,65 @@ export default game;
 
 function currentQuestion() {
   return state.question;
+}
+
+/** Wczytuje pytania z pliku; gra startuje dopiero po udanym wczytaniu. */
+async function loadContent() {
+  const sessionState = state;
+
+  if (!sessionState) {
+    return;
+  }
+
+  const token = sessionState.loadToken + 1;
+  sessionState.loadToken = token;
+  sessionState.phase = 'loading';
+  sessionState.loadError = '';
+  renderState();
+
+  try {
+    const questions = await loadQuestions('questions');
+
+    if (state !== sessionState || sessionState.loadToken !== token) {
+      return;
+    }
+
+    if (questions.length === 0) {
+      showLoadError(t('games.guess-number.loadEmpty'));
+      return;
+    }
+
+    startGame(questions);
+  } catch (error) {
+    if (state !== sessionState || sessionState.loadToken !== token) {
+      return;
+    }
+
+    console.error('Nie udało się wczytać pytań gry "Na oko":', error);
+    showLoadError(t('games.guess-number.loadError'));
+  }
+}
+
+/** Pokazuje ekran błędu wczytywania z ponowieniem i wyjściem do HUB-a. */
+function showLoadError(message) {
+  state.phase = 'load-error';
+  state.loadError = message;
+  renderState();
+}
+
+/** Pierwsza runda zaczyna się po wczytaniu pliku z pytaniami. */
+function startGame(questions) {
+  state.questions = questions;
+  state.question = drawNext(getQuestionPoolId(), questions, getQuestionKey);
+  state.totalQuestions = Math.min(QUESTIONS_PER_GAME, questions.length);
+  state.questionIndex = 0;
+  // Pierwsza runda: losowa kolejność graczy (indeksy w tablicy players).
+  state.order = shuffle(state.players.map((_, index) => index));
+  state.turnIndex = 0;
+  state.guesses = [];
+  state.ranking = [];
+  state.phase = state.question === null ? 'finished' : 'turn';
+  renderState();
 }
 
 function renderState() {
@@ -139,13 +206,30 @@ function renderState() {
     return;
   }
 
-  // Zabezpieczenie: brak pytań w pliku questions.js oznacza od razu koniec partii.
+  clear(container);
+  window.scrollTo(0, 0);
+
+  if (state.phase === 'loading') {
+    container.append(renderLoadingScreen());
+    container.append(createExitFooter(requestExit));
+    return;
+  }
+
+  if (state.phase === 'load-error') {
+    container.append(
+      renderLoadErrorScreen({
+        message: state.loadError,
+        onRetry: loadContent,
+        onExit: () => state.api.exit(),
+      }),
+    );
+    return;
+  }
+
+  // Zabezpieczenie: brak pytań w pliku z treścią oznacza od razu koniec partii.
   if (state.phase !== 'finished' && (state.totalQuestions === 0 || state.question === null)) {
     state.phase = 'finished';
   }
-
-  clear(container);
-  window.scrollTo(0, 0);
 
   if (state.phase === 'finished') {
     container.append(
@@ -186,7 +270,7 @@ function renderState() {
       onRedrawQuestion: redrawQuestion,
       canRedrawQuestion:
         state.guesses.length === 0 && state.question !== null
-          ? hasOther(QUESTION_POOL_ID, QUESTIONS, getQuestionKey, state.question.id)
+          ? hasOther(getQuestionPoolId(), state.questions, getQuestionKey, state.question.text)
           : false,
     }),
   );
@@ -222,7 +306,7 @@ function redrawQuestion() {
     return;
   }
 
-  const next = redraw(QUESTION_POOL_ID, QUESTIONS, getQuestionKey, state.question.id);
+  const next = redraw(getQuestionPoolId(), state.questions, getQuestionKey, state.question.text);
 
   if (!next) {
     return;
@@ -278,7 +362,7 @@ function goToNextQuestion() {
     state.phase = 'finished';
   } else {
     // Kolejne pytanie z puli sesji — nie powtarza wcześniej użytych.
-    state.question = drawNext(QUESTION_POOL_ID, QUESTIONS, getQuestionKey);
+    state.question = drawNext(getQuestionPoolId(), state.questions, getQuestionKey);
     state.phase = state.question === null ? 'finished' : 'turn';
   }
 

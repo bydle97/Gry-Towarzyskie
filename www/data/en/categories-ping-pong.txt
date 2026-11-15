@@ -1,0 +1,39 @@
+# Categories for the game "Ping-Pong".
+#
+# How to add a category: add one category per line.
+# - a category should be a set of things that can be named one by one
+#   (the more typical examples, the more interesting the duel),
+# - empty lines and lines starting with # are ignored,
+# - duplicates (case-insensitive) are skipped,
+# - the order of lines does not matter.
+
+Car brands
+Fruit
+Vegetables
+Domestic and farm animals
+Exotic animals
+Birds
+Fish
+Countries in Europe
+World capitals
+Cities in Europe
+Rivers
+Professions
+Dishes from around the world
+Sweets
+Drinks
+Musical instruments
+Sports
+Olympic sports
+Things in a kitchen
+Tools
+Furniture
+Clothes
+Flowers
+Trees
+Means of transport
+Things in a bathroom
+Things in a backpack
+Things at the beach
+Things at school
+Things that are green

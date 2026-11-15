@@ -3,8 +3,9 @@
  *
  * Wszystkie liczby i nazwy ról trzymamy w jednym miejscu — reszta gry (silnik,
  * interfejs, scenariusz mistrza gry) czyta je stąd, więc zmiana balansu to
- * edycja tego pliku.
+ * edycja tego pliku. Nazwy i opisy ról pochodzą z tłumaczeń (gettery).
  */
+import { t, tPlural } from '../../core/i18n.js';
 
 /** Minimalna liczba grających (bez mistrza gry). */
 export const MIN_PLAYERS = 5;
@@ -29,29 +30,43 @@ export const ROLE_IDS = Object.freeze({
 export const ROLES = Object.freeze({
   [ROLE_IDS.villager]: Object.freeze({
     id: ROLE_IDS.villager,
-    name: 'Mieszkaniec',
     icon: '🧑',
-    revealText: 'Nie masz mocy. W dzień dyskutujesz i głosujesz razem z miasteczkiem.',
+    get name() {
+      return t('games.sect.roles.villager.name');
+    },
+    get revealText() {
+      return t('games.sect.roles.villager.reveal');
+    },
   }),
   [ROLE_IDS.sect]: Object.freeze({
     id: ROLE_IDS.sect,
-    name: 'Sekciarz',
     icon: '🕯️',
-    revealText:
-      'Poznasz innych sekciarzy w pierwszą noc, gdy mistrz gry poprosi sektę o otwarcie oczu.',
+    get name() {
+      return t('games.sect.roles.sect.name');
+    },
+    get revealText() {
+      return t('games.sect.roles.sect.reveal');
+    },
   }),
   [ROLE_IDS.doctor]: Object.freeze({
     id: ROLE_IDS.doctor,
-    name: 'Lekarz',
     icon: '💉',
-    revealText:
-      'Każdej nocy możesz ochronić jedną osobę (nie tę samą dwie noce z rzędu, możesz siebie).',
+    get name() {
+      return t('games.sect.roles.doctor.name');
+    },
+    get revealText() {
+      return t('games.sect.roles.doctor.reveal');
+    },
   }),
   [ROLE_IDS.detective]: Object.freeze({
     id: ROLE_IDS.detective,
-    name: 'Śledczy',
     icon: '🔍',
-    revealText: 'Każdej nocy możesz sprawdzić jedną osobę: czy jest sekciarzem.',
+    get name() {
+      return t('games.sect.roles.detective.name');
+    },
+    get revealText() {
+      return t('games.sect.roles.detective.reveal');
+    },
   }),
 });
 
@@ -100,10 +115,6 @@ export function getLineup(playerCount) {
   };
 }
 
-function formatRoleCount(count, singular, plural) {
-  return count === 1 ? `1 ${singular}` : `${count} ${plural}`;
-}
-
 /**
  * Opis składu do podglądu na ekranie przygotowania,
  * np. "2 sekciarzy, 1 lekarz, 1 śledczy, 3 mieszkańców".
@@ -112,9 +123,9 @@ function formatRoleCount(count, singular, plural) {
  */
 export function formatLineup(lineup) {
   return [
-    formatRoleCount(lineup.sect, 'sekciarz', 'sekciarzy'),
-    formatRoleCount(lineup.doctor, 'lekarz', 'lekarzy'),
-    formatRoleCount(lineup.detective, 'śledczy', 'śledczych'),
-    formatRoleCount(lineup.villager, 'mieszkaniec', 'mieszkańców'),
+    tPlural('games.sect.lineup.sect', lineup.sect),
+    tPlural('games.sect.lineup.doctor', lineup.doctor),
+    tPlural('games.sect.lineup.detective', lineup.detective),
+    tPlural('games.sect.lineup.villager', lineup.villager),
   ].join(', ');
 }
