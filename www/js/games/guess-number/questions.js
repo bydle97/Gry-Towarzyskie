@@ -1,5 +1,5 @@
 /**
- * Pytania do gry "Obstawianie".
+ * Pytania do gry "Na oko".
  *
  * Jak dodać kolejne pytanie:
  *   1. dopisz nowy obiekt na końcu tablicy QUESTIONS (kolejność w pliku nie ma znaczenia —

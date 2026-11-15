@@ -1,5 +1,5 @@
 /**
- * Widoki gry "Pojedynek" oraz jej lokalne style.
+ * Widoki gry "Ping-pong" oraz jej lokalne style.
  *
  * Style gry są wstrzykiwane do <head> przy starcie partii i usuwane w unmount(),
  * dzięki czemu gra jest samowystarczalna i nie wymaga zmian w css/ HUB-a.
@@ -40,6 +40,16 @@ const STYLES = `
 .dl-hint {
   font-size: 0.9rem;
   color: var(--color-text-muted);
+}
+
+/* Mały przycisk „Inna kategoria” — nad dużym przyciskiem „Gotowi”. */
+.dl-redraw {
+  display: flex;
+  justify-content: center;
+}
+
+.dl-redraw .button {
+  font-size: 0.9rem;
 }
 
 .dl-duelists {
@@ -406,15 +416,25 @@ function createTeamsSummary(teams) {
  *   duelists: {first: string, second: string},
  *   category: string,
  *   onReady: () => void,
+ *   onRedrawCategory: () => void,
+ *   canRedrawCategory: boolean,
  * }} options
  * @returns {HTMLElement}
  */
-export function renderIntroScreen({ roundNumber, totalRounds, duelists, category, onReady }) {
+export function renderIntroScreen({
+  roundNumber,
+  totalRounds,
+  duelists,
+  category,
+  onReady,
+  onRedrawCategory,
+  canRedrawCategory,
+}) {
   return el('div', { class: 'stack' }, [
     el('p', { class: 'dl-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
 
     el('div', { class: 'panel' }, [
-      el('h2', { class: 'panel__title', text: 'Pojedynek' }),
+      el('h2', { class: 'panel__title', text: 'Ping-pong' }),
       el('div', { class: 'dl-duelists' }, [
         createTeamLine(TEAMS[0], `${duelists.first} (${TEAMS[0].name})`),
         createTeamLine(TEAMS[1], `${duelists.second} (${TEAMS[1].name})`),
@@ -425,6 +445,16 @@ export function renderIntroScreen({ roundNumber, totalRounds, duelists, category
     el('div', { class: 'panel' }, [
       el('p', { class: 'dl-category-label', text: 'Kategoria' }),
       el('p', { class: 'dl-category', text: category }),
+    ]),
+
+    el('div', { class: 'dl-redraw' }, [
+      el('button', {
+        class: 'button button--secondary button--compact',
+        type: 'button',
+        text: canRedrawCategory ? 'Inna kategoria' : 'Brak innych',
+        disabled: !canRedrawCategory,
+        onClick: onRedrawCategory,
+      }),
     ]),
 
     el('button', {

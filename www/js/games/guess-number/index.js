@@ -1,5 +1,5 @@
 /**
- * Gra "Obstawianie" (id: guess-number).
+ * Gra "Na oko" (id: guess-number).
  *
  * Zasady:
  *  - pytanie czyta jedna osoba na głos, reszta obstawia liczbę całkowitą,
@@ -8,9 +8,11 @@
  *  - po typach wszystkich graczy pokazujemy prawidłową odpowiedź i ranking rundy
  *    (najbliższy pierwszy; przy remisie odległości zostaje dotychczasowa kolejność),
  *  - kolejność graczy w następnym pytaniu = kolejność z rankingu,
- *  - pytania są tasowane raz na starcie partii i nie powtarzają się,
+ *  - pytania są losowane pojedynczo z puli sesji (core/content-pool.js): kolejne
+ *    partie nie powtarzają pytań, dopóki pula się nie wyczerpie,
  *  - brak punktów i brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
+import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear } from '../../core/dom.js';
 import { shuffle } from '../../core/random.js';
 import { QUESTIONS } from './questions.js';
@@ -24,13 +26,23 @@ import {
   renderTurnScreen,
 } from './ui.js';
 
+/** Ile pytań ma jedna partia — pula sesyjna wystarcza dzięki temu na kilka partii. */
+const QUESTIONS_PER_GAME = 8;
+
+/** Id puli pytań w content-pool.js — wspólna dla wszystkich partii w tej sesji. */
+const QUESTION_POOL_ID = 'guess-number';
+
+/** Klucz pytania w puli to jego unikalne id. */
+const getQuestionKey = (question) => question.id;
+
 /**
  * Stan jednej partii.
  * @type {null | {
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
  *   players: string[],
- *   deck: ReadonlyArray<{id: string, text: string, answer: number, unit: string}>,
+ *   question: {id: string, text: string, answer: number, unit: string} | null,
+ *   totalQuestions: number,
  *   questionIndex: number,
  *   order: number[],
  *   turnIndex: number,
@@ -44,7 +56,7 @@ let state = null;
 
 const game = {
   id: 'guess-number',
-  name: 'Obstawianie',
+  name: 'Na oko',
   description: 'Zgadnij liczbę. Kto będzie najbliżej?',
   icon: '🎯',
   minPlayers: 2,
@@ -77,7 +89,8 @@ const game = {
       container,
       api,
       players: [...players],
-      deck: shuffle(QUESTIONS),
+      question: drawNext(QUESTION_POOL_ID, QUESTIONS, getQuestionKey),
+      totalQuestions: Math.min(QUESTIONS_PER_GAME, QUESTIONS.length),
       questionIndex: 0,
       // Pierwsza runda: losowa kolejność graczy (indeksy w tablicy players).
       order: shuffle(players.map((_, index) => index)),
@@ -100,7 +113,7 @@ const game = {
 export default game;
 
 function currentQuestion() {
-  return state.deck[state.questionIndex];
+  return state.question;
 }
 
 function renderState() {
@@ -127,7 +140,7 @@ function renderState() {
   }
 
   // Zabezpieczenie: brak pytań w pliku questions.js oznacza od razu koniec partii.
-  if (state.phase !== 'finished' && state.deck.length === 0) {
+  if (state.phase !== 'finished' && (state.totalQuestions === 0 || state.question === null)) {
     state.phase = 'finished';
   }
 
@@ -137,7 +150,7 @@ function renderState() {
   if (state.phase === 'finished') {
     container.append(
       renderFinishedScreen({
-        totalQuestions: state.deck.length,
+        totalQuestions: state.totalQuestions,
         onExit: () => state.api.exit(),
       }),
     );
@@ -150,7 +163,7 @@ function renderState() {
         players: state.players,
         question: currentQuestion(),
         questionNumber: state.questionIndex + 1,
-        totalQuestions: state.deck.length,
+        totalQuestions: state.totalQuestions,
         ranking: state.ranking,
         onNext: goToNextQuestion,
       }),
@@ -164,12 +177,17 @@ function renderState() {
       players: state.players,
       question: currentQuestion(),
       questionNumber: state.questionIndex + 1,
-      totalQuestions: state.deck.length,
+      totalQuestions: state.totalQuestions,
       guesses: state.guesses,
       currentPlayerIndex: Math.min(state.turnIndex, state.order.length - 1),
       allGuessed: state.phase === 'ready',
       onSubmit: submitGuess,
       onReveal: revealAnswer,
+      onRedrawQuestion: redrawQuestion,
+      canRedrawQuestion:
+        state.guesses.length === 0 && state.question !== null
+          ? hasOther(QUESTION_POOL_ID, QUESTIONS, getQuestionKey, state.question.id)
+          : false,
     }),
   );
   container.append(createExitFooter(requestExit));
@@ -192,6 +210,25 @@ function submitGuess(value) {
   state.guesses.push({ playerIndex: state.order[state.turnIndex], value });
   state.turnIndex += 1;
   state.phase = state.turnIndex >= state.order.length ? 'ready' : 'turn';
+  renderState();
+}
+
+/**
+ * „Inne pytanie” — działa tylko przed pierwszym typem w tej rundzie i bez limitu.
+ * Numer pytania, kolejność graczy i punktacja pozostają bez zmian.
+ */
+function redrawQuestion() {
+  if (!state || state.phase !== 'turn' || state.guesses.length > 0 || state.question === null) {
+    return;
+  }
+
+  const next = redraw(QUESTION_POOL_ID, QUESTIONS, getQuestionKey, state.question.id);
+
+  if (!next) {
+    return;
+  }
+
+  state.question = next;
   renderState();
 }
 
@@ -234,7 +271,17 @@ function goToNextQuestion() {
   state.turnIndex = 0;
   state.guesses = [];
   state.ranking = [];
-  state.phase = state.questionIndex >= state.deck.length ? 'finished' : 'turn';
+
+  if (state.questionIndex >= state.totalQuestions) {
+    // Partia ma QUESTIONS_PER_GAME pytań (albo mniej, gdy w pliku jest ich mniej).
+    state.question = null;
+    state.phase = 'finished';
+  } else {
+    // Kolejne pytanie z puli sesji — nie powtarza wcześniej użytych.
+    state.question = drawNext(QUESTION_POOL_ID, QUESTIONS, getQuestionKey);
+    state.phase = state.question === null ? 'finished' : 'turn';
+  }
+
   renderState();
 }
 

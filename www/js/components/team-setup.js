@@ -35,7 +35,7 @@ export const MIN_TEAM_SIZE = 2;
  *   minTeamSize?: number,
  * }} options
  *   minTeamSize — ile osób musi mieć każda drużyna, żeby zacząć.
- *   Domyślnie MIN_TEAM_SIZE (2), tak jak w Rewolwerze; Pojedynek dopuszcza 1,
+ *   Domyślnie MIN_TEAM_SIZE (2), tak jak w grze "W pół słowa"; "Ping-pong" dopuszcza 1,
  *   bo to gra jeden na jednego.
  */
 export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MIN_TEAM_SIZE }) {

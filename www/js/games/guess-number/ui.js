@@ -1,5 +1,5 @@
 /**
- * Widoki gry "Obstawianie" oraz jej lokalne style.
+ * Widoki gry "Na oko" oraz jej lokalne style.
  *
  * Style gry są wstrzykiwane do <head> przy starcie partii i usuwane w unmount(),
  * dzięki czemu gra jest samowystarczalna: nie wymaga zmian w css/ HUB-a.
@@ -27,6 +27,16 @@ const STYLES = `
 .gn-hint {
   font-size: 0.9rem;
   color: var(--color-text-muted);
+}
+
+/* Mały przycisk „Inne pytanie” — nie konkuruje z głównym przyciskiem formularza. */
+.gn-redraw {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.gn-redraw .button {
+  font-size: 0.9rem;
 }
 
 .gn-guess-list {
@@ -238,6 +248,8 @@ function createGuessesList({ players, guesses }) {
  *   allGuessed: boolean,
  *   onSubmit: (value: number) => void,
  *   onReveal: () => void,
+ *   onRedrawQuestion: () => void,
+ *   canRedrawQuestion: boolean,
  * }} options
  * @returns {HTMLElement}
  */
@@ -251,9 +263,23 @@ export function renderTurnScreen({
   allGuessed,
   onSubmit,
   onReveal,
+  onRedrawQuestion,
+  canRedrawQuestion,
 }) {
   const screen = el('div', { class: 'stack' }, [
     createQuestionBlock(question, questionNumber, totalQuestions),
+    // Zmiana pytania jest możliwa tylko przed pierwszym typem w tej rundzie.
+    guesses.length === 0
+      ? el('div', { class: 'gn-redraw' }, [
+          el('button', {
+            class: 'button button--secondary button--compact',
+            type: 'button',
+            text: canRedrawQuestion ? 'Inne pytanie' : 'Brak innych',
+            disabled: !canRedrawQuestion,
+            onClick: onRedrawQuestion,
+          }),
+        ])
+      : null,
   ]);
 
   screen.append(

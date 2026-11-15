@@ -1,19 +1,21 @@
 /**
- * Gra "Pojedynek" (id: duel).
+ * Gra "Ping-pong" (id: duel).
  *
  * Zasady:
  *  - po Starcie gracze dzielą się na dwie drużyny (wspólny components/team-setup.js),
  *  - liczba rund = liczba osób w większej drużynie; w każdej rundzie pojedynkuje się
  *    jedna osoba z każdej drużyny (kolejność w drużynie jest przetasowana, a w mniejszej
  *    drużynie zapętla się — nikt nie występuje drugi raz, zanim nie wystąpią wszyscy),
- *    dobór par jest taki sam jak w grze "Rewolwer",
- *  - kategorię losujemy raz na partię i nie powtarzamy jej, dopóki nie skończy się lista,
+ *    dobór par jest taki sam jak w grze "W pół słowa",
+ *  - kategorię losujemy pojedynczo z puli sesji (core/content-pool.js): kolejne
+ *    partie nie powtarzają kategorii, dopóki pula się nie wyczerpie,
  *  - zegar działa jak w szachach: każdy gracz ma JEDNĄ pulę na cały pojedynek,
  *    odlicza się tylko czas gracza, którego tura trwa; dotknięcie własnej połowy
  *    kończy wymianę i przekazuje turę przeciwnikowi,
  *  - przegrywa gracz, którego pula spadnie do zera; punkt dla jego drużyny dostaje rywal,
  *  - brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
+import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear, el } from '../../core/dom.js';
 import { shuffle } from '../../core/random.js';
 import { TEAMS, mountTeamSetup } from '../../components/team-setup.js';
@@ -28,6 +30,12 @@ import {
   renderIntroScreen,
   renderResultScreen,
 } from './ui.js';
+
+/** Id puli kategorii w content-pool.js — wspólna dla wszystkich partii w tej sesji. */
+const CATEGORY_POOL_ID = 'duel';
+
+/** Klucz kategorii w puli to sam tekst kategorii. */
+const getCategoryKey = (category) => category;
 
 /**
  * Jedna pula czasu na gracza na cały pojedynek (w sekundach) — łatwa do zmiany.
@@ -62,7 +70,7 @@ const VIBRATION_END_MS = 300;
  *   order: {first: string[], second: string[]} | null,
  *   rounds: number,
  *   roundIndex: number,
- *   deck: ReadonlyArray<string>,
+ *   category: string,
  *   firstStarterId: string,
  *   scores: {first: number, second: number},
  *   duelists: {first: string, second: string} | null,
@@ -91,7 +99,7 @@ let wakeLockSentinel = null;
 
 const game = {
   id: 'duel',
-  name: 'Pojedynek',
+  name: 'Ping-pong',
   description: 'Jedna kategoria, dwóch rywali i zegar jak w szachach.',
   icon: '⏱️',
   minPlayers: 2,
@@ -128,7 +136,7 @@ const game = {
       order: null,
       rounds: 0,
       roundIndex: 0,
-      deck: shuffle(CATEGORIES),
+      category: '',
       firstStarterId: randomTeamId(),
       scores: { first: 0, second: 0 },
       duelists: null,
@@ -180,12 +188,9 @@ function getWinnerTeamId() {
   return state.scores.first > state.scores.second ? 'first' : 'second';
 }
 
-/** Kategoria bieżącej rundy; talia zapętla się, gdy kategorii jest mniej niż rund. */
+/** Kategoria bieżącej rundy — wylosowana pojedynczo z puli sesji. */
 function currentCategory() {
-  if (state.deck.length === 0) {
-    return '—';
-  }
-  return state.deck[state.roundIndex % state.deck.length];
+  return state.category || '—';
 }
 
 /** Ekran zegara jest pełnoekranowy — na ten czas chowamy nagłówek HUB-a. */
@@ -337,6 +342,13 @@ function renderIntroPhase() {
       duelists: state.duelists,
       category: currentCategory(),
       onReady: startClockPhase,
+      onRedrawCategory: redrawCategory,
+      canRedrawCategory: hasOther(
+        CATEGORY_POOL_ID,
+        CATEGORIES,
+        getCategoryKey,
+        state.category,
+      ),
     }),
   );
   state.container.append(createExitFooter(requestExit));
@@ -634,12 +646,12 @@ function startMatch(teams) {
   state.rounds = Math.max(state.teams.first.length, state.teams.second.length);
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
-  state.deck = shuffle(CATEGORIES);
   state.firstStarterId = randomTeamId();
   prepareRound();
 }
 
 function prepareRound() {
+  state.category = drawNext(CATEGORY_POOL_ID, CATEGORIES, getCategoryKey) ?? '—';
   state.duelists = {
     first: state.order.first[state.roundIndex % state.order.first.length],
     second: state.order.second[state.roundIndex % state.order.second.length],
@@ -649,6 +661,25 @@ function prepareRound() {
   state.clock = null;
   state.clockView = null;
   state.phase = 'intro';
+  renderState();
+}
+
+/**
+ * „Inna kategoria” — tylko przed startem zegara i bez limitu.
+ * Nie zmienia numeru rundy, punktacji ani kolejności graczy.
+ */
+function redrawCategory() {
+  if (!state || state.phase !== 'intro') {
+    return;
+  }
+
+  const next = redraw(CATEGORY_POOL_ID, CATEGORIES, getCategoryKey, state.category);
+
+  if (!next) {
+    return;
+  }
+
+  state.category = next;
   renderState();
 }
 
@@ -675,7 +706,6 @@ function playAgain() {
   };
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
-  state.deck = shuffle(CATEGORIES);
   state.firstStarterId = randomTeamId();
   prepareRound();
 }

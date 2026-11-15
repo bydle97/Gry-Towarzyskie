@@ -1,5 +1,5 @@
 /**
- * Widoki gry "Rewolwer" oraz jej lokalne style.
+ * Widoki gry "W pół słowa" oraz jej lokalne style.
  *
  * Style gry są wstrzykiwane do <head> przy starcie partii i usuwane w unmount(),
  * dzięki czemu gra jest samowystarczalna i nie wymaga zmian w css/ HUB-a.
@@ -71,6 +71,23 @@ const STYLES = `
 .rv-hint {
   font-size: 0.9rem;
   color: var(--color-text-muted);
+}
+
+/* Rząd zmiany hasła — mały przycisk z dala od dużych przycisków wyniku. */
+.rv-redraw {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.rv-redraw__count {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.rv-redraw .button {
+  font-size: 0.9rem;
 }
 
 .rv-score {
@@ -237,6 +254,9 @@ export function renderRoundIntroScreen({ roundNumber, totalRounds, explainers, o
  *   starterTeam: {id: string, name: string, icon: string, className: string},
  *   onTeamGuessed: (teamId: string) => void,
  *   onRoundCancelled: () => void,
+ *   onRedrawWord: () => void,
+ *   redrawsLeft: number,
+ *   canRedrawWord: boolean,
  * }} options
  * @returns {HTMLElement}
  */
@@ -247,13 +267,35 @@ export function renderWordScreen({
   starterTeam,
   onTeamGuessed,
   onRoundCancelled,
+  onRedrawWord,
+  redrawsLeft,
+  canRedrawWord,
 }) {
+  const redrawLimitReached = redrawsLeft <= 0;
+  const redrawLabel = redrawLimitReached
+    ? 'Brak zmian'
+    : canRedrawWord
+      ? 'Inne hasło'
+      : 'Brak innych';
+  const redrawDisabled = redrawLimitReached || !canRedrawWord;
+
   return el('div', { class: 'stack' }, [
     el('p', { class: 'rv-progress', text: `Runda ${roundNumber} z ${totalRounds}` }),
 
     el('div', { class: 'panel rv-word-card' }, [
       el('p', { class: 'rv-word-label', text: 'Hasło' }),
       el('p', { class: 'rv-word', text: word }),
+    ]),
+
+    el('div', { class: 'rv-redraw' }, [
+      el('button', {
+        class: 'button button--secondary button--compact',
+        type: 'button',
+        text: redrawLabel,
+        disabled: redrawDisabled,
+        onClick: onRedrawWord,
+      }),
+      el('span', { class: 'rv-redraw__count', text: `Zostało zmian: ${redrawsLeft}` }),
     ]),
 
     el('div', { class: 'panel rv-starter' }, [

@@ -1,5 +1,5 @@
 /**
- * Kategorie do gry "Pojedynek".
+ * Kategorie do gry "Ping-pong".
  *
  * Jak dodać kategorię:
  *   1. dopisz tekst na końcu tablicy CATEGORIES (w apostrofach, po przecinku),

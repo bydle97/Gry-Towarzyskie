@@ -1,5 +1,5 @@
 /**
- * Gra "Rewolwer" (id: revolver).
+ * Gra "W pół słowa" (id: revolver).
  *
  * Zasady:
  *  - po Starcie gracze dzielą się na dwie drużyny (wspólny components/team-setup.js),
@@ -8,10 +8,11 @@
  *    drużynie zapętla się, więc nikt nie tłumaczy drugi raz, zanim nie zrobią tego wszyscy),
  *  - która drużyna zaczyna: w pierwszej rundzie losowo, w kolejnych na zmianę,
  *  - zwycięzca rundy dostaje 1 punkt, „Unieważnij" kończy rundę bez punktu,
- *  - hasła tasujemy raz na partię; gdy rund jest więcej niż haseł, talia zapętla się
- *    od początku przetasowanej listy,
+ *  - hasła są losowane pojedynczo z puli sesji (core/content-pool.js): kolejne partie
+ *    nie powtarzają haseł, dopóki pula się nie wyczerpie,
  *  - brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
+import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear, el } from '../../core/dom.js';
 import { shuffle } from '../../core/random.js';
 import { TEAMS, mountTeamSetup } from '../../components/team-setup.js';
@@ -27,6 +28,15 @@ import {
   renderWordScreen,
 } from './ui.js';
 
+/** Id puli haseł w content-pool.js — wspólna dla wszystkich partii w tej sesji. */
+const PHRASE_POOL_ID = 'revolver';
+
+/** Klucz hasła w puli to sam tekst hasła. */
+const getPhraseKey = (phrase) => phrase;
+
+/** Ile razy w jednej rundzie można zmienić hasło przyciskiem „Inne hasło”. */
+const MAX_REDRAWS_PER_ROUND = 2;
+
 /**
  * Stan jednej partii.
  * @type {null | {
@@ -37,7 +47,8 @@ import {
  *   order: {first: string[], second: string[]} | null,
  *   rounds: number,
  *   roundIndex: number,
- *   deck: ReadonlyArray<string>,
+ *   word: string,
+ *   redrawsLeft: number,
  *   firstStarterId: string,
  *   scores: {first: number, second: number},
  *   explainers: {first: string, second: string} | null,
@@ -50,7 +61,7 @@ let state = null;
 
 const game = {
   id: 'revolver',
-  name: 'Rewolwer',
+  name: 'W pół słowa',
   description: 'Dwie drużyny, jedno hasło, po jednym słowie na zmianę.',
   icon: '🗣️',
   minPlayers: 4,
@@ -87,7 +98,8 @@ const game = {
       order: null,
       rounds: 0,
       roundIndex: 0,
-      deck: shuffle(PHRASES),
+      word: '',
+      redrawsLeft: 0,
       firstStarterId: randomTeamId(),
       scores: { first: 0, second: 0 },
       explainers: null,
@@ -125,12 +137,9 @@ function currentStarterId() {
   return state.roundIndex % 2 === 0 ? state.firstStarterId : otherTeamId(state.firstStarterId);
 }
 
-/** Hasło bieżącej rundy; talia zapętla się, gdy rund jest więcej niż haseł. */
+/** Hasło bieżącej rundy — wylosowane pojedynczo z puli sesji. */
 function currentWord() {
-  if (state.deck.length === 0) {
-    return '—';
-  }
-  return state.deck[state.roundIndex % state.deck.length];
+  return state.word || '—';
 }
 
 function isLastRound() {
@@ -199,6 +208,9 @@ function renderState() {
         starterTeam: teamById(currentStarterId()),
         onTeamGuessed: handleTeamGuessed,
         onRoundCancelled: handleRoundCancelled,
+        onRedrawWord: redrawWord,
+        redrawsLeft: state.redrawsLeft,
+        canRedrawWord: hasOther(PHRASE_POOL_ID, PHRASES, getPhraseKey, state.word),
       }),
     );
     container.append(createExitFooter(requestExit));
@@ -255,7 +267,7 @@ function requestExit() {
   renderState();
 }
 
-/** Start partii po zatwierdzeniu drużyn: kolejności tłumaczy, talia haseł, kto zaczyna. */
+/** Start partii po zatwierdzeniu drużyn: kolejności tłumaczy, hasło z puli, kto zaczyna. */
 function startMatch(teams) {
   state.teams = { first: [...teams.first], second: [...teams.second] };
   state.order = {
@@ -265,12 +277,13 @@ function startMatch(teams) {
   state.rounds = Math.max(state.teams.first.length, state.teams.second.length);
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
-  state.deck = shuffle(PHRASES);
   state.firstStarterId = randomTeamId();
   prepareRound();
 }
 
 function prepareRound() {
+  state.word = drawNext(PHRASE_POOL_ID, PHRASES, getPhraseKey) ?? '—';
+  state.redrawsLeft = MAX_REDRAWS_PER_ROUND;
   state.explainers = {
     first: state.order.first[state.roundIndex % state.order.first.length],
     second: state.order.second[state.roundIndex % state.order.second.length],
@@ -285,6 +298,26 @@ function revealWord() {
     return;
   }
   state.phase = 'word';
+  renderState();
+}
+
+/**
+ * „Inne hasło” — najwyżej MAX_REDRAWS_PER_ROUND razy na rundę.
+ * Zmiana nie wpływa na numer rundy, punktację ani drużynę zaczynającą.
+ */
+function redrawWord() {
+  if (!state || state.phase !== 'word' || state.redrawsLeft <= 0) {
+    return;
+  }
+
+  const next = redraw(PHRASE_POOL_ID, PHRASES, getPhraseKey, state.word);
+
+  if (!next) {
+    return;
+  }
+
+  state.word = next;
+  state.redrawsLeft -= 1;
   renderState();
 }
 
@@ -330,7 +363,6 @@ function playAgain() {
   };
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
-  state.deck = shuffle(PHRASES);
   state.firstStarterId = randomTeamId();
   prepareRound();
 }

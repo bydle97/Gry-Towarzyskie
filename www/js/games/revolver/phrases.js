@@ -1,5 +1,5 @@
 /**
- * Hasła do gry "Rewolwer".
+ * Hasła do gry "W pół słowa".
  *
  * Jak dodać hasło:
  *   1. dopisz tekst na końcu tablicy PHRASES (w apostrofach, po przecinku),
