@@ -10,24 +10,27 @@
 # - duplikaty (bez rozróżniania wielkości liter) są pomijane,
 # - kolejność w pliku nie ma znaczenia.
 
-Ile jaj rocznie składa kura nioska w hodowli towarowej? | 300 | jaj
+
+
+Ile jaj średnio rocznie składa kura nioska w hodowli towarowej? | 300 | jaj
 W którym roku skonstruowano pierwszy samodzielny toster elektryczny? | 1893
 Ile wysp liczy Norwegia według danych norweskiego urzędu kartograficznego? | 239057 | wysp
-W którym roku powstała pierwsza kamera internetowa, która obserwowała dzbanek z kawą na Uniwersytecie Cambridge? | 1991
 W którym roku wysłano pierwszą wiadomość SMS w historii? | 1992
 W którym roku zainstalowano bankomat uznawany za pierwszy na świecie? | 1967
 W którym roku otwarto pierwsze publiczne akwarium na świecie? | 1853
-W którym roku opublikowano pierwszą nowoczesną krzyżówkę? | 1913
 W którym roku zbudowano pierwszy prototyp myszy komputerowej? | 1964
-W którym roku po raz pierwszy zaprezentowano grę komputerową „Tennis for Two”? | 1958
-W którym roku powstał Creeper — pierwszy robak komputerowy? | 1971
 W którym roku wystrzelono Sputnika 1, pierwszego sztucznego satelitę Ziemi? | 1957
 Ile minut trwała wojna brytyjsko-zanzibarska, uznawana za najkrótszą w historii? | 38 | minut
 W którym roku uruchomiono pierwszą pasażerską kolej parową na świecie? | 1825
-W którym roku zainstalowano pierwszy pasażerski dźwig osobowy zaprojektowany przez Elishę Otisa? | 1857
 W którym roku Louis-Sébastien Lenormand wykonał pierwszy odnotowany publiczny skok ze spadochronem? | 1783
 W którym roku powstała pierwsza kolejka górska na Coney Island w Nowym Jorku? | 1884
-Ile egzemplarzy pierwszego znaczka pocztowego Penny Black wydrukowano? | 68808000 | egzemplarzy
-Ile sekund trwał pierwszy film opublikowany na YouTube, zatytułowany „Me at the zoo”? | 19 | sekund
-Przez ile dni Sputnik 1 nadawał sygnał radiowy po wystrzeleniu? | 22 | dni
-Ile pikseli miała szerokość obrazu pierwszej kamery internetowej w Cambridge? | 128 | pikseli
+Ile litrów moczu przeciętnie produkuje dorosły człowiek w ciągu 30 dni? | 45 | litrów 
+Ile metrów wysokości miała najwyższa ścięta choinka bożonarodzeniowa na świecie? | 64,6 | metrów 
+Ile lat miał najstarszy mężczyzna, który zdobył Mount Everest? | 80 | lat 
+Ile mieszków włosowych ma przeciętnie człowiek na całym ciele? | 5 000 000 | mieszków 
+Ile metrów średnicy miała największa okrągła pizza na świecie? | 40 | metrów
+Ile państw należy do Afryki według klasyfikacji ONZ? | 54 | państwa
+Ile powieści i nowel opublikował Stephen King do listopada 2026 roku? | 65 | książek
+Ile haseł zawiera Wielki słownik języka polskiego PAN według stanu ze stycznia 2026 roku? | 100 000 | haseł
+Jak długo trwała najdłuższa projekcja w historii festiwalu filmowego w Cannes (dokument „The War” z 2007 roku)? | 870 | minut
+W ilu filmach wystąpił Brad Pitt do listopada 2026 roku według filmografii Wikipedii? | 61 | filmów

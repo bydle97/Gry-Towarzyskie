@@ -10,24 +10,25 @@
 # - duplicates (case-insensitive) are skipped,
 # - the order of lines does not matter.
 
-How many eggs does a commercial laying hen lay per year? | 300 | eggs
-In which year was the first standalone electric toaster built? | 1893
-How many islands does Norway have according to the Norwegian Mapping Authority? | 239057 | islands
-In which year was the first webcam created to watch a coffee pot at the University of Cambridge? | 1991
-In which year was the first SMS message in history sent? | 1992
-In which year was the world's first ATM installed? | 1967
-In which year did the world's first public aquarium open? | 1853
-In which year was the first modern crossword puzzle published? | 1913
-In which year was the first computer mouse prototype built? | 1964
-In which year was the computer game “Tennis for Two” first demonstrated? | 1958
-In which year was Creeper, the first computer worm, created? | 1971
-In which year was Sputnik 1, the first artificial satellite of Earth, launched? | 1957
+How many eggs does a laying hen in commercial egg production lay on average per year? | 300 | eggs
+In what year was the first electric toaster invented? | 1893
+How many islands does Norway have, according to data from the Norwegian Mapping Authority? | 239,057 | islands
+In what year was the first SMS text message sent? | 1992
+In what year was the world's first ATM installed? | 1967
+In what year was the world's first public aquarium opened? | 1853
+In what year was the first prototype of the computer mouse built? | 1964
+In what year was Sputnik 1, the world's first artificial satellite, launched? | 1957
 How many minutes did the Anglo-Zanzibar War, considered the shortest war in history, last? | 38 | minutes
-In which year was the world's first passenger steam railway opened? | 1825
-In which year was the first passenger elevator designed by Elisha Otis installed? | 1857
-In which year did Louis-Sébastien Lenormand make the first recorded public parachute jump? | 1783
-In which year was the first roller coaster on Coney Island in New York built? | 1884
-How many copies of the first postage stamp, the Penny Black, were printed? | 68808000 | copies
-How many seconds long was the first video published on YouTube, titled “Me at the zoo”? | 19 | seconds
-For how many days did Sputnik 1 transmit a radio signal after launch? | 22 | days
-How many pixels wide was the image from the first webcam in Cambridge? | 128 | pixels
+In what year did the world's first passenger steam railway begin operating? | 1825
+In what year did Louis-Sébastien Lenormand perform the first recorded public parachute jump? | 1783
+In what year was the first roller coaster built on Coney Island in New York? | 1884
+How many litres of urine does an average adult produce over a period of 30 days? | 45 | litres
+How tall was the tallest cut Christmas tree in the world? | 64.6 | metres
+How old was the oldest man to climb Mount Everest? | 80 | years
+How many hair follicles does the average human have across their entire body? | 5,000,000 | follicles
+What was the diameter of the world's largest circular pizza? | 40 | metres
+How many countries are there in Africa according to the United Nations classification? | 54 | countries
+How many novels and novellas had Stephen King published by November 2026? | 65 | books
+How many entries did the Oxford English Dictionary contain as of January 2026? | 520,779 | entries
+How long did the longest screening in the history of the Cannes Film Festival last (the 2007 documentary *The War*)? | 870 | minutes
+In how many films had Brad Pitt appeared by November 2026, according to his Wikipedia filmography? | 61 | films
