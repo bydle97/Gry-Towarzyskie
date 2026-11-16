@@ -20,11 +20,31 @@ export function getPlayerNames() {
 
 /**
  * Zapisuje imiona w pamięci sesji (po normalizacji).
+ * Puste wpisy i duplikaty (bez względu na wielkość liter) są pomijane — funkcja
+ * nie ma kanału błędu, więc nigdy nie dopuszcza dwóch osób o tym samym imieniu.
  * @param {string[]} names
  * @returns {string[]} zapisana kopia
  */
 export function setPlayerNames(names) {
-  state.playerNames = names.map(normalizePlayerName).filter((name) => name !== '');
+  const seen = new Set();
+
+  state.playerNames = (Array.isArray(names) ? names : [])
+    .map(normalizePlayerName)
+    .filter((name) => {
+      if (name === '') {
+        return false;
+      }
+
+      const key = name.toLocaleLowerCase('pl');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+
   return getPlayerNames();
 }
 
@@ -40,6 +60,7 @@ export function clearSession() {
  */
 export function normalizePlayerName(value) {
   return String(value ?? '')
+    .normalize('NFC')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, PLAYER_NAME_MAX_LENGTH);
@@ -104,6 +125,7 @@ export function removePlayerName(index) {
  */
 function preparePlayerName(value) {
   return String(value ?? '')
+    .normalize('NFC')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -122,9 +144,10 @@ function checkPlayerName(name, excludeIndex) {
     return t('players.errors.tooLong', { max: PLAYER_NAME_MAX_LENGTH });
   }
 
-  const key = name.toLocaleLowerCase('pl');
+  const key = name.normalize('NFC').toLocaleLowerCase('pl');
   const duplicate = state.playerNames.some(
-    (existing, index) => index !== excludeIndex && existing.toLocaleLowerCase('pl') === key,
+    (existing, index) =>
+      index !== excludeIndex && existing.normalize('NFC').toLocaleLowerCase('pl') === key,
   );
 
   if (duplicate) {

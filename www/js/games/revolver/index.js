@@ -42,12 +42,20 @@ const getPhraseKey = (phrase) => phrase;
 /** Ile razy w jednej rundzie można zmienić hasło przyciskiem „Inne hasło”. */
 const MAX_REDRAWS_PER_ROUND = 2;
 
+/** Ile ms po zmianie hasła ignorujemy kolejne kliknięcia (ochrona przed podwójnym dotknięciem). */
+const REDRAW_GUARD_MS = 250;
+
 /**
  * Stan jednej partii.
+ *
+ * Gracze mają stałe id nadane przy starcie partii. `teams`, `order` i `explainers`
+ * to tablice identyfikatorów — imiona służą wyłącznie do wyświetlania.
+ *
  * @type {null | {
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
- *   players: string[],
+ *   players: Array<{id: string, name: string}>,
+ *   playerNames: Map<string, string>,
  *   phrases: string[],
  *   teams: {first: string[], second: string[]} | null,
  *   order: {first: string[], second: string[]} | null,
@@ -55,6 +63,7 @@ const MAX_REDRAWS_PER_ROUND = 2;
  *   roundIndex: number,
  *   word: string,
  *   redrawsLeft: number,
+ *   lastRedrawAt: number,
  *   firstStarterId: string,
  *   scores: {first: number, second: number},
  *   explainers: {first: string, second: string} | null,
@@ -95,10 +104,14 @@ const game = {
   mount(container, players, api) {
     ensureStyles();
 
+    // Sesja HUB-a trzyma tylko imiona — stałe id graczy powstają na starcie partii.
+    const roster = createRoster(players);
+
     state = {
       container,
       api,
-      players: [...players],
+      players: roster,
+      playerNames: new Map(roster.map((player) => [player.id, player.name])),
       phrases: [],
       teams: null,
       order: null,
@@ -106,6 +119,7 @@ const game = {
       roundIndex: 0,
       word: '',
       redrawsLeft: 0,
+      lastRedrawAt: 0,
       firstStarterId: randomTeamId(),
       scores: { first: 0, second: 0 },
       explainers: null,
@@ -127,6 +141,24 @@ const game = {
 };
 
 export default game;
+
+/** Nadaje graczom stałe identyfikatory na czas partii (imiona są tylko do wyświetlania). */
+function createRoster(names) {
+  return names.map((name, index) => ({ id: `p${index + 1}`, name }));
+}
+
+/** Imię gracza z mapy id → imię. */
+function nameOf(playerId) {
+  return state.playerNames.get(playerId) ?? '—';
+}
+
+/** Skład drużyn jako imiona do wyświetlenia (stan partii trzyma identyfikatory). */
+function teamNames() {
+  return {
+    first: state.teams.first.map(nameOf),
+    second: state.teams.second.map(nameOf),
+  };
+}
 
 /** Losowa drużyna (używana do wyboru, kto zaczyna pierwszą rundę). */
 function randomTeamId() {
@@ -263,7 +295,10 @@ function renderState() {
       renderRoundIntroScreen({
         roundNumber: state.roundIndex + 1,
         totalRounds: state.rounds,
-        explainers: state.explainers,
+        explainers: {
+          first: nameOf(state.explainers.first),
+          second: nameOf(state.explainers.second),
+        },
         onReveal: revealWord,
       }),
     );
@@ -307,7 +342,7 @@ function renderState() {
   const winnerTeamId = getWinnerTeamId();
   container.append(
     renderFinishedScreen({
-      teams: state.teams,
+      teams: teamNames(),
       scores: state.scores,
       winnerTeam: winnerTeamId ? teamById(winnerTeamId) : null,
       onPlayAgain: playAgain,
@@ -341,6 +376,11 @@ function requestExit() {
 
 /** Start partii po zatwierdzeniu drużyn: kolejności tłumaczy, hasło z puli, kto zaczyna. */
 function startMatch(teams) {
+  // Bez dwóch niepustych drużyn rotacja tłumaczy nie istnieje (modulo przez zero).
+  if (teams.first.length === 0 || teams.second.length === 0) {
+    return;
+  }
+
   state.teams = { first: [...teams.first], second: [...teams.second] };
   state.order = {
     first: shuffle(state.teams.first),
@@ -356,6 +396,7 @@ function startMatch(teams) {
 function prepareRound() {
   state.word = drawNext(getPhrasePoolId(), state.phrases, getPhraseKey) ?? '—';
   state.redrawsLeft = MAX_REDRAWS_PER_ROUND;
+  state.lastRedrawAt = 0;
   state.explainers = {
     first: state.order.first[state.roundIndex % state.order.first.length],
     second: state.order.second[state.roundIndex % state.order.second.length],
@@ -382,6 +423,13 @@ function redrawWord() {
     return;
   }
 
+  // Szybkie podwójne dotknięcie nie może zużyć dwóch zmian pod rząd.
+  const now = performance.now();
+
+  if (now - state.lastRedrawAt < REDRAW_GUARD_MS) {
+    return;
+  }
+
   const next = redraw(getPhrasePoolId(), state.phrases, getPhraseKey, state.word);
 
   if (!next) {
@@ -390,6 +438,7 @@ function redrawWord() {
 
   state.word = next;
   state.redrawsLeft -= 1;
+  state.lastRedrawAt = now;
   renderState();
 }
 

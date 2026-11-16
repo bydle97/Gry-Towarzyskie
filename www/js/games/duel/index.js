@@ -58,6 +58,9 @@ const TICK_MS = 100;
 /** Ile ms po zmianie tury ignorujemy dotknięcia (ochrona przed przypadkowym dublem). */
 const TAP_GUARD_MS = 200;
 
+/** Ile ms po pokazaniu ekranu zegara nie można go wystartować (ochrona przed podwójnym dotknięciem). */
+const START_GUARD_MS = 300;
+
 /** Od ilu ms pozostałego czasu zegar jest wyróżniony na czerwono. */
 const LOW_TIME_MS = 3000;
 
@@ -67,10 +70,15 @@ const VIBRATION_END_MS = 300;
 
 /**
  * Stan jednej partii.
+ *
+ * Gracze mają stałe id nadane przy starcie partii. `teams`, `order` i `duelists`
+ * to identyfikatory — imiona służą wyłącznie do wyświetlania.
+ *
  * @type {null | {
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
- *   players: string[],
+ *   players: Array<{id: string, name: string}>,
+ *   playerNames: Map<string, string>,
  *   categories: string[],
  *   teams: {first: string[], second: string[]} | null,
  *   order: {first: string[], second: string[]} | null,
@@ -89,6 +97,7 @@ const VIBRATION_END_MS = 300;
  *     paused: boolean,
  *     finished: boolean,
  *     winnerTeamId: string | null,
+ *     createdAt: number,
  *     turnStartedAt: number,
  *     lastTurnChangeAt: number,
  *     tickId: number | null,
@@ -134,10 +143,14 @@ const game = {
   mount(container, players, api) {
     ensureStyles();
 
+    // Sesja HUB-a trzyma tylko imiona — stałe id graczy powstają na starcie partii.
+    const roster = createRoster(players);
+
     state = {
       container,
       api,
-      players: [...players],
+      players: roster,
+      playerNames: new Map(roster.map((player) => [player.id, player.name])),
       categories: [],
       teams: null,
       order: null,
@@ -172,6 +185,32 @@ const game = {
 };
 
 export default game;
+
+/** Nadaje graczom stałe identyfikatory na czas partii (imiona są tylko do wyświetlania). */
+function createRoster(names) {
+  return names.map((name, index) => ({ id: `p${index + 1}`, name }));
+}
+
+/** Imię gracza z mapy id → imię. */
+function nameOf(playerId) {
+  return state.playerNames.get(playerId) ?? '—';
+}
+
+/** Skład drużyn jako imiona do wyświetlenia (stan partii trzyma identyfikatory). */
+function teamNames() {
+  return {
+    first: state.teams.first.map(nameOf),
+    second: state.teams.second.map(nameOf),
+  };
+}
+
+/** Imiona bieżących rywali (stan trzyma identyfikatory). */
+function duelistNames() {
+  return {
+    first: nameOf(state.duelists.first),
+    second: nameOf(state.duelists.second),
+  };
+}
 
 /** Losowa drużyna — kto zaczyna pierwszą rundę. */
 function randomTeamId() {
@@ -412,7 +451,7 @@ function renderIntroPhase() {
     renderIntroScreen({
       roundNumber: state.roundIndex + 1,
       totalRounds: state.rounds,
-      duelists: state.duelists,
+      duelists: duelistNames(),
       category: currentCategory(),
       onReady: startClockPhase,
       onRedrawCategory: redrawCategory,
@@ -428,10 +467,13 @@ function renderIntroPhase() {
 }
 
 function renderClockPhase() {
-  state.clock = createClockState();
+  // Zegar tworzymy raz na rundę — ponowny render nie może wyzerować puli czasu.
+  if (!state.clock) {
+    state.clock = createClockState();
+  }
 
   const view = createClockScreen({
-    duelists: state.duelists,
+    duelists: duelistNames(),
     category: currentCategory(),
     startingTeam: teamById(state.startingTeamId),
     poolMs: PLAYER_TIME_SECONDS * 1000,
@@ -457,8 +499,8 @@ function renderResultPhase() {
       roundNumber: state.roundIndex + 1,
       totalRounds: state.rounds,
       winnerTeam: teamById(clock.winnerTeamId),
-      winnerName: state.duelists[clock.winnerTeamId],
-      duelists: state.duelists,
+      winnerName: nameOf(state.duelists[clock.winnerTeamId]),
+      duelists: duelistNames(),
       counts: clock.counts,
       winnerRemainingMs: clock.remaining[clock.winnerTeamId],
       scores: state.scores,
@@ -474,7 +516,7 @@ function renderFinishedPhase() {
 
   state.container.append(
     renderFinishedScreen({
-      teams: state.teams,
+      teams: teamNames(),
       scores: state.scores,
       winnerTeam: winnerTeamId ? teamById(winnerTeamId) : null,
       onPlayAgain: playAgain,
@@ -486,6 +528,10 @@ function renderFinishedPhase() {
 
 /** Przejście z ekranu "Gotowi" na pełnoekranowy zegar. */
 function startClockPhase() {
+  if (!state || state.phase !== 'intro') {
+    return;
+  }
+
   state.phase = 'clock';
   renderState();
 }
@@ -502,6 +548,7 @@ function createClockState() {
     paused: false,
     finished: false,
     winnerTeamId: null,
+    createdAt: performance.now(),
     turnStartedAt: 0,
     lastTurnChangeAt: 0,
     tickId: null,
@@ -572,6 +619,11 @@ function startDuel() {
   const clock = state?.clock;
 
   if (!clock || clock.started) {
+    return;
+  }
+
+  // Ekran zegara dopiero się pojawił — chronimy przed przypadkowym „startem” z podwójnego dotknięcia.
+  if (performance.now() - clock.createdAt < START_GUARD_MS) {
     return;
   }
 
@@ -711,6 +763,11 @@ function requestAbort() {
 
 /** Start partii po zatwierdzeniu drużyn. */
 function startMatch(teams) {
+  // Bez dwóch niepustych drużyn rotacja rywali nie istnieje (modulo przez zero).
+  if (teams.first.length === 0 || teams.second.length === 0) {
+    return;
+  }
+
   state.teams = { first: [...teams.first], second: [...teams.second] };
   state.order = {
     first: shuffle(state.teams.first),

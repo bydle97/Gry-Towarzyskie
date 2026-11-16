@@ -10,6 +10,9 @@
  *   const root = el('div', { class: 'stack' });
  *   container.append(root);
  *   mountTeamSetup({ container: root, players, onConfirm: (teams) => startGame(teams) });
+ *
+ * Gracze przychodzą jako lista {id, name}, a drużyny zwracamy jako tablice id —
+ * dzięki temu podział i przenoszenie nie zależą od tekstu imienia.
  */
 import { clear, el } from '../core/dom.js';
 import { formatNumber, t, tPlural } from '../core/i18n.js';
@@ -41,46 +44,73 @@ export const TEAMS = Object.freeze([
 /** Minimalna liczba osób w drużynie, żeby można było zacząć grę. */
 export const MIN_TEAM_SIZE = 2;
 
+/** Ile ms po kliknięciu ignorujemy kolejne kliknięcia przycisków zmieniających cały ekran. */
+const BUTTON_GUARD_MS = 250;
+
 /**
  * Montuje ekran podziału na drużyny w podanym kontenerze.
  * @param {{
  *   container: HTMLElement,
- *   players: string[],
+ *   players: Array<{id: string, name: string}>,
  *   onConfirm: (teams: {first: string[], second: string[]}) => void,
  *   minTeamSize?: number,
  * }} options
+ *   players — gracze ze stałymi id; imiona służą tylko do wyświetlania.
+ *   onConfirm — dostaje drużyny jako tablice identyfikatorów (nie imion).
  *   minTeamSize — ile osób musi mieć każda drużyna, żeby zacząć.
  *   Domyślnie MIN_TEAM_SIZE (2), tak jak w grze "W pół słowa"; "Ping-pong" dopuszcza 1,
  *   bo to gra jeden na jednego.
  */
 export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MIN_TEAM_SIZE }) {
-  /** @type {{first: string[], second: string[]}} */
+  /** @type {{first: string[], second: string[]}} identyfikatory graczy w drużynach */
   const teams = { first: [], second: [] };
+
+  /** Mapa id → imię — imiona służą wyłącznie do wyświetlania. */
+  const namesById = new Map(players.map((player) => [player.id, player.name]));
+
+  /** Znacznik ostatniej akcji przycisków, które przerysowują cały ekran. */
+  let lastButtonActionAt = Number.NEGATIVE_INFINITY;
 
   shuffleTeams();
   render();
+
+  function nameById(playerId) {
+    return namesById.get(playerId) ?? '—';
+  }
 
   function otherTeamId(teamId) {
     return teamId === 'first' ? 'second' : 'first';
   }
 
+  /** Ochrona przed podwójnym dotknięciem: drugi klik w tym samym momencie jest ignorowany. */
+  function canAct() {
+    const now = performance.now();
+
+    if (now - lastButtonActionAt < BUTTON_GUARD_MS) {
+      return false;
+    }
+
+    lastButtonActionAt = now;
+    return true;
+  }
+
   function shuffleTeams() {
     const shuffled = shuffle(players);
     const firstSize = Math.ceil(shuffled.length / 2);
-    teams.first = shuffled.slice(0, firstSize);
-    teams.second = shuffled.slice(firstSize);
+    teams.first = shuffled.slice(0, firstSize).map((player) => player.id);
+    teams.second = shuffled.slice(firstSize).map((player) => player.id);
   }
 
-  function movePlayer(teamId, name) {
+  function movePlayer(teamId, playerId) {
     const source = teams[teamId];
-    const index = source.indexOf(name);
+    const index = source.indexOf(playerId);
 
     if (index === -1) {
       return;
     }
 
     source.splice(index, 1);
-    teams[otherTeamId(teamId)].push(name);
+    teams[otherTeamId(teamId)].push(playerId);
     render();
   }
 
@@ -112,6 +142,9 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
         type: 'button',
         text: t('teams.shuffle'),
         onClick: () => {
+          if (!canAct()) {
+            return;
+          }
           shuffleTeams();
           render();
         },
@@ -122,7 +155,7 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
         text: t('teams.start'),
         disabled: !canStart(),
         onClick: () => {
-          if (!canStart()) {
+          if (!canStart() || !canAct()) {
             return;
           }
           onConfirm({ first: [...teams.first], second: [...teams.second] });
@@ -132,30 +165,32 @@ export function mountTeamSetup({ container, players, onConfirm, minTeamSize = MI
   }
 
   function createTeamColumn(team) {
-    const names = teams[team.id];
+    const playerIds = teams[team.id];
 
     return el('div', { class: `team-column ${team.className}` }, [
       el('div', { class: 'team-column__header' }, [
         el('span', { class: 'team-column__icon', 'aria-hidden': 'true', text: team.icon }),
         el('span', { class: 'team-column__name', text: team.name }),
-        el('span', { class: 'team-column__count', text: `${names.length}` }),
+        el('span', { class: 'team-column__count', text: `${playerIds.length}` }),
       ]),
-      names.length === 0
+      playerIds.length === 0
         ? el('p', { class: 'team-column__empty', text: t('teams.empty') })
         : el(
             'ul',
             { class: 'team-column__list' },
-            names.map((name) =>
-              el('li', {}, [
+            playerIds.map((playerId) => {
+              const name = nameById(playerId);
+
+              return el('li', {}, [
                 el('button', {
                   class: 'team-name-button',
                   type: 'button',
                   text: name,
                   'aria-label': t('teams.moveAria', { name }),
-                  onClick: () => movePlayer(team.id, name),
+                  onClick: () => movePlayer(team.id, playerId),
                 }),
-              ]),
-            ),
+              ]);
+            }),
           ),
     ]);
   }

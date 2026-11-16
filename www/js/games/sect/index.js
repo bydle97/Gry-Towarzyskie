@@ -598,6 +598,15 @@ function confirmNightPick(kind) {
     return;
   }
 
+  // Wybór mógł się zdezaktualizować (np. ręczna korekta na Tablicy) — wtedy go czyścimy.
+  const candidate = getNightCandidates(kind).find((item) => item.id === targetId);
+
+  if (!candidate || candidate.disabled) {
+    state.selection = null;
+    renderState();
+    return;
+  }
+
   const choices = state.gameState.nightChoices;
   state.nightHistory.push({ stepIndex: state.nightStep, nightChoices: { ...choices } });
 
@@ -754,7 +763,15 @@ function confirmDayVote() {
     return;
   }
 
-  const player = state.gameState.players.find((item) => item.id === choice);
+  const player = state.gameState.players.find((item) => item.id === choice && item.alive);
+
+  // Ktoś mógł zostać oznaczony jako martwy po wyborze (korekta na Tablicy).
+  if (!player) {
+    state.selection = null;
+    renderState();
+    return;
+  }
+
   const removed = eliminatePlayer(state.gameState, choice, { type: 'day' });
 
   state.gameState = { ...removed, winner: checkWin(removed) };
@@ -811,22 +828,31 @@ function renderFinished() {
 
 /** „Jeszcze raz": te same osoby i te same role, bez ponownego sprawdzania ról. */
 function playAgainSameRoles() {
+  resetRoundView();
   state.gameState = restartGame(state.gameState, { keepRoles: true });
-  state.morningInfo = null;
-  state.dayResult = null;
-  state.previewOpen = false;
   startNight();
 }
 
 /** „Nowe role": tasowanie ról i powrót do wspólnego sprawdzania ról. */
 function playAgainNewRoles() {
+  resetRoundView();
   state.gameState = restartGame(state.gameState, { keepRoles: false });
+  state.phase = 'check';
+  renderState();
+}
+
+/** Czyści stan ekranów rundy, żeby nowa partia nie dziedziczyła wyborów ani historii nocy. */
+function resetRoundView() {
+  state.nightSteps = [];
+  state.nightStep = 0;
+  state.nightHistory = [];
+  state.selection = null;
+  state.nightConfirmed = false;
   state.morningInfo = null;
   state.dayResult = null;
   state.previewOpen = false;
+  state.boardOpen = false;
   state.revealPlayerId = null;
-  state.phase = 'check';
-  renderState();
 }
 
 /** Wspólne akcje nagłówka ekranów mistrza gry. */
@@ -874,6 +900,12 @@ function askCorrectPlayer(playerId) {
     onConfirm: () => {
       const corrected = correctPlayerState(state.gameState, playerId, { alive: nextAlive });
       state.gameState = { ...corrected, winner: checkWin(corrected) };
+
+      // Zaznaczony cel mógł właśnie przestać być żywy — czyścimy wybór.
+      if (state.selection === playerId) {
+        state.selection = null;
+      }
+
       renderState();
     },
   });
