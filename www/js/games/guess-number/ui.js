@@ -225,7 +225,17 @@ function createQuestionBlock(question, questionNumber, totalQuestions) {
   ]);
 }
 
-function createGuessesList({ players, guesses }) {
+/**
+ * Imię gracza zawsze z mapy id → imię (nigdy z pozycji w tablicy).
+ * @param {Map<string, string>} playerNames
+ * @param {string|null} playerId
+ * @returns {string}
+ */
+function getPlayerName(playerNames, playerId) {
+  return playerNames.get(playerId) ?? '—';
+}
+
+function createGuessesList({ playerNames, guesses }) {
   if (guesses.length === 0) {
     return el('p', { class: 'gn-hint', text: t('games.guess-number.noGuesses') });
   }
@@ -236,7 +246,7 @@ function createGuessesList({ players, guesses }) {
     guesses.map((guess, index) =>
       el('li', { class: 'gn-guess-row' }, [
         el('span', { class: 'gn-guess-order', text: `${index + 1}.` }),
-        el('span', { class: 'gn-guess-name', text: players[guess.playerIndex] }),
+        el('span', { class: 'gn-guess-name', text: getPlayerName(playerNames, guess.playerId) }),
         el('span', { class: 'gn-guess-value', text: formatNumber(guess.value) }),
       ]),
     ),
@@ -246,12 +256,12 @@ function createGuessesList({ players, guesses }) {
 /**
  * Ekran tury: pytanie, dotychczasowe typy, pole liczby albo przycisk "Pokaż odpowiedź".
  * @param {{
- *   players: string[],
+ *   playerNames: Map<string, string>,
  *   question: {text: string, answer: number, unit: string},
  *   questionNumber: number,
  *   totalQuestions: number,
- *   guesses: Array<{playerIndex: number, value: number}>,
- *   currentPlayerIndex: number,
+ *   guesses: Array<{playerId: string, value: number}>,
+ *   currentPlayerId: string | null,
  *   allGuessed: boolean,
  *   onSubmit: (value: number) => void,
  *   onReveal: () => void,
@@ -261,12 +271,12 @@ function createGuessesList({ players, guesses }) {
  * @returns {HTMLElement}
  */
 export function renderTurnScreen({
-  players,
+  playerNames,
   question,
   questionNumber,
   totalQuestions,
   guesses,
-  currentPlayerIndex,
+  currentPlayerId,
   allGuessed,
   onSubmit,
   onReveal,
@@ -297,7 +307,9 @@ export function renderTurnScreen({
         class: 'panel__title',
         text: allGuessed
           ? t('games.guess-number.allGuessedTitle')
-          : t('games.guess-number.turnTitle', { name: players[currentPlayerIndex] }),
+          : t('games.guess-number.turnTitle', {
+              name: getPlayerName(playerNames, currentPlayerId),
+            }),
       }),
       el('p', {
         class: 'gn-hint',
@@ -305,7 +317,7 @@ export function renderTurnScreen({
           ? t('games.guess-number.allGuessedHint')
           : t('games.guess-number.turnHint'),
       }),
-      createGuessesList({ players, guesses }),
+      createGuessesList({ playerNames, guesses }),
     ]),
   );
 
@@ -342,6 +354,14 @@ export function renderTurnScreen({
     question.unit ? el('span', { class: 'gn-input-unit', id: unitId, text: question.unit }) : null,
   ]);
 
+  // Po zatwierdzeniu przycisk zostaje zablokowany — drugie kliknięcie w tej samej
+  // turze nie zapisze wpisu. Nowa tura rysuje nowy, aktywny przycisk.
+  const submitButton = el('button', {
+    class: 'button button--primary button--block',
+    type: 'submit',
+    text: t('games.guess-number.submit'),
+  });
+
   screen.append(
     el(
       'form',
@@ -371,6 +391,7 @@ export function renderTurnScreen({
           }
 
           errorBox.hidden = true;
+          submitButton.disabled = true;
           onSubmit(value);
         },
       },
@@ -384,11 +405,7 @@ export function renderTurnScreen({
           inputRow,
         ]),
         errorBox,
-        el('button', {
-          class: 'button button--primary button--block',
-          type: 'submit',
-          text: t('games.guess-number.submit'),
-        }),
+        submitButton,
       ],
     ),
   );
@@ -399,17 +416,17 @@ export function renderTurnScreen({
 /**
  * Ekran odpowiedzi: prawidłowa odpowiedź z jednostką + ranking od najbliższego.
  * @param {{
- *   players: string[],
+ *   playerNames: Map<string, string>,
  *   question: {text: string, answer: number, unit: string},
  *   questionNumber: number,
  *   totalQuestions: number,
- *   ranking: Array<{playerIndex: number, value: number, distance: number}>,
+ *   ranking: Array<{playerId: string, value: number, distance: number}>,
  *   onNext: () => void,
  * }} options
  * @returns {HTMLElement}
  */
 export function renderAnswerScreen({
-  players,
+  playerNames,
   question,
   questionNumber,
   totalQuestions,
@@ -443,7 +460,10 @@ export function renderAnswerScreen({
         ranking.map((entry, index) =>
           el('li', { class: 'gn-ranking-row' }, [
             el('span', { class: 'gn-rank', text: `${index + 1}.` }),
-            el('span', { class: 'gn-ranking-name', text: players[entry.playerIndex] }),
+            el('span', {
+              class: 'gn-ranking-name',
+              text: getPlayerName(playerNames, entry.playerId),
+            }),
             el('span', { class: 'gn-ranking-value', text: formatNumber(entry.value) }),
             el('span', {
               class: 'gn-ranking-distance',

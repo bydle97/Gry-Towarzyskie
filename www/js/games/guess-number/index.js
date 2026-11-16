@@ -16,8 +16,18 @@ import { loadQuestions } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { clear } from '../../core/dom.js';
 import { getLanguage, t } from '../../core/i18n.js';
-import { shuffle } from '../../core/random.js';
 import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
+import {
+  addGuess,
+  canRedrawRound,
+  computeRanking,
+  createInitialOrder,
+  createNameMap,
+  createOrderFromRanking,
+  createPlayers,
+  getCurrentPlayerId,
+  hasGuessed,
+} from './engine.js';
 import {
   createExitFooter,
   ensureStyles,
@@ -42,18 +52,23 @@ const getQuestionKey = (question) => question.text;
 
 /**
  * Stan jednej partii.
+ *
+ * Gracze mają stałe identyfikatory (id) nadane przy starcie partii. Tura, wpisy
+ * i ranking używają wyłącznie id — pozycja w tablicy nie jest tożsamością gracza.
+ *
  * @type {null | {
  *   container: HTMLElement,
  *   api: import('../../core/game-contract.js').GameApi,
- *   players: string[],
+ *   players: Array<{id: string, name: string}>,
+ *   playerNames: Map<string, string>,
  *   questions: Array<{text: string, answer: number, unit: string}>,
  *   question: {text: string, answer: number, unit: string} | null,
  *   totalQuestions: number,
  *   questionIndex: number,
- *   order: number[],
+ *   order: string[],
  *   turnIndex: number,
- *   guesses: Array<{playerIndex: number, value: number}>,
- *   ranking: Array<{playerIndex: number, value: number, distance: number}>,
+ *   guesses: Array<{playerId: string, value: number}>,
+ *   ranking: Array<{playerId: string, value: number, distance: number}>,
  *   phase: 'loading' | 'load-error' | 'turn' | 'ready' | 'answer' | 'finished',
  *   loadError: string,
  *   loadToken: number,
@@ -90,10 +105,14 @@ const game = {
   mount(container, players, api) {
     ensureStyles();
 
+    // Sesja HUB-a trzyma tylko imiona — stałe id graczy powstają na starcie partii.
+    const roster = createPlayers(players);
+
     state = {
       container,
       api,
-      players: [...players],
+      players: roster,
+      playerNames: createNameMap(roster),
       questions: [],
       question: null,
       totalQuestions: 0,
@@ -174,8 +193,8 @@ function startGame(questions) {
   state.question = drawNext(getQuestionPoolId(), questions, getQuestionKey);
   state.totalQuestions = Math.min(QUESTIONS_PER_GAME, questions.length);
   state.questionIndex = 0;
-  // Pierwsza runda: losowa kolejność graczy (indeksy w tablicy players).
-  state.order = shuffle(state.players.map((_, index) => index));
+  // Pierwsza runda: losowa kolejność stałych identyfikatorów graczy.
+  state.order = createInitialOrder(state.players.map((player) => player.id));
   state.turnIndex = 0;
   state.guesses = [];
   state.ranking = [];
@@ -244,7 +263,7 @@ function renderState() {
   if (state.phase === 'answer') {
     container.append(
       renderAnswerScreen({
-        players: state.players,
+        playerNames: state.playerNames,
         question: currentQuestion(),
         questionNumber: state.questionIndex + 1,
         totalQuestions: state.totalQuestions,
@@ -256,20 +275,24 @@ function renderState() {
     return;
   }
 
+  // Bieżący gracz wyłącznie po stałym id z kolejności tury.
+  const currentPlayerId = getCurrentPlayerId(state.order, state.turnIndex);
+
   container.append(
     renderTurnScreen({
-      players: state.players,
+      playerNames: state.playerNames,
       question: currentQuestion(),
       questionNumber: state.questionIndex + 1,
       totalQuestions: state.totalQuestions,
       guesses: state.guesses,
-      currentPlayerIndex: Math.min(state.turnIndex, state.order.length - 1),
+      currentPlayerId,
       allGuessed: state.phase === 'ready',
-      onSubmit: submitGuess,
+      // Ekran pamięta, dla kogo jest tura — spóźnione kliknięcie nie zapisze wpisu innemu graczowi.
+      onSubmit: (value) => submitGuess(currentPlayerId, value),
       onReveal: revealAnswer,
       onRedrawQuestion: redrawQuestion,
       canRedrawQuestion:
-        state.guesses.length === 0 && state.question !== null
+        canRedrawRound(state.guesses) && state.question !== null
           ? hasOther(getQuestionPoolId(), state.questions, getQuestionKey, state.question.text)
           : false,
     }),
@@ -285,13 +308,30 @@ function requestExit() {
   renderState();
 }
 
-/** Zapisuje typ bieżącego gracza i przechodzi dalej (albo do przycisku "Pokaż odpowiedź"). */
-function submitGuess(value) {
-  if (!state || state.phase !== 'turn') {
+/**
+ * Zapisuje typ gracza wskazanego przez ekran i przechodzi dalej
+ * (albo do przycisku "Pokaż odpowiedź").
+ *
+ * Ekran tury przekazuje id gracza z chwili rysowania. Jeśli tura zdążyła się już
+ * zmienić, id nie zgadza się z bieżącym i nic nie zapisujemy — drugie kliknięcie
+ * „Zatwierdź” nie dopisze typu następnemu graczowi.
+ *
+ * @param {string|null} playerId
+ * @param {number} value
+ */
+function submitGuess(playerId, value) {
+  if (!state || state.phase !== 'turn' || playerId === null) {
     return;
   }
 
-  state.guesses.push({ playerIndex: state.order[state.turnIndex], value });
+  const currentPlayerId = getCurrentPlayerId(state.order, state.turnIndex);
+
+  if (currentPlayerId !== playerId || hasGuessed(state.guesses, playerId)) {
+    return;
+  }
+
+  // Najpierw wpis dla aktualnego gracza, potem przesunięcie tury, na końcu odświeżenie ekranu.
+  state.guesses = addGuess(state.guesses, playerId, value);
   state.turnIndex += 1;
   state.phase = state.turnIndex >= state.order.length ? 'ready' : 'turn';
   renderState();
@@ -302,7 +342,8 @@ function submitGuess(value) {
  * Numer pytania, kolejność graczy i punktacja pozostają bez zmian.
  */
 function redrawQuestion() {
-  if (!state || state.phase !== 'turn' || state.guesses.length > 0 || state.question === null) {
+  // „Inne pytanie” tylko przed pierwszym typem: nie zmienia cudzych wpisów ani kolejności tury.
+  if (!state || state.phase !== 'turn' || !canRedrawRound(state.guesses) || state.question === null) {
     return;
   }
 
@@ -321,27 +362,9 @@ function revealAnswer() {
     return;
   }
 
-  state.ranking = computeRanking();
+  state.ranking = computeRanking(state.guesses, currentQuestion().answer);
   state.phase = 'answer';
   renderState();
-}
-
-/**
- * Ranking rundy: od najmniejszej odległości od prawidłowej odpowiedzi.
- * Przy równych odległościach decyduje pozycja w kolejności typowania
- * (drugi warunek sortowania), więc remis zachowuje dotychczasową kolejność.
- */
-function computeRanking() {
-  const answer = currentQuestion().answer;
-
-  return state.guesses
-    .map((guess, position) => ({
-      playerIndex: guess.playerIndex,
-      value: guess.value,
-      distance: Math.abs(guess.value - answer),
-      position,
-    }))
-    .sort((first, second) => first.distance - second.distance || first.position - second.position);
 }
 
 /** Następne pytanie — kolejność graczy bierzemy z rankingu (najbliższy zaczyna). */
@@ -350,7 +373,8 @@ function goToNextQuestion() {
     return;
   }
 
-  state.order = state.ranking.map((entry) => entry.playerIndex);
+  // Następną rundę zaczyna najbliższy z rankingu — kolejność to znów tablica id.
+  state.order = createOrderFromRanking(state.ranking);
   state.questionIndex += 1;
   state.turnIndex = 0;
   state.guesses = [];
