@@ -7,6 +7,7 @@
  */
 import { el } from '../../core/dom.js';
 import { formatNumber, t } from '../../core/i18n.js';
+import { EXACT_HIT_BONUS } from './engine.js';
 
 const STYLE_ELEMENT_ID = 'guess-number-styles';
 
@@ -30,14 +31,21 @@ const STYLES = `
   color: var(--color-text-muted);
 }
 
-/* Mały przycisk „Inne pytanie” — nie konkuruje z głównym przyciskiem formularza. */
-.gn-redraw {
+/* Pasek drobnych akcji nad panelem: „Inne pytanie” i „Wyniki”. */
+.gn-toolbar {
   display: flex;
-  justify-content: flex-start;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.gn-redraw .button {
+.gn-toolbar .button {
   font-size: 0.9rem;
+}
+
+/* Przycisk „Wyniki” trzyma się prawej krawędzi także bez „Innego pytania”. */
+.gn-toolbar .gn-standings-button {
+  margin-left: auto;
 }
 
 .gn-guess-list {
@@ -165,7 +173,90 @@ const STYLES = `
   color: var(--color-text-muted);
 }
 
-.gn-overlay {
+/* Punkty rundy i suma partii — zawsze tekstem, także przy trafieniu dokładnym. */
+.gn-ranking-score {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: 0.9rem;
+}
+
+.gn-round-points {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+
+.gn-total-points {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trafienie dokładne: ikona + słowo + bonus, nie tylko kolor. */
+.gn-exact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+}
+
+/* Tabela wyników: nakładka w trakcie partii i lista końcowa. */
+.gn-standings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gn-standing-row {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+}
+
+.gn-standing-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gn-standing-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+
+/* Ogłoszenie zwycięzcy lub remisu na końcu partii. */
+.gn-winner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: clamp(1.25rem, 4.6vw, 1.6rem);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.gn-winner-icon {
+  font-size: 1.2em;
+}
+
+.gn-overlay,
+.gn-sheet-overlay {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -176,7 +267,8 @@ const STYLES = `
   backdrop-filter: blur(4px);
 }
 
-.gn-dialog {
+.gn-dialog,
+.gn-sheet {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -185,6 +277,14 @@ const STYLES = `
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
+}
+
+/* Tabela wyników: własna szerokość i przewijanie na niskich ekranach. */
+.gn-sheet {
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow-y: auto;
+  background-color: var(--color-bg-soft);
 }
 `;
 
@@ -267,6 +367,7 @@ function createGuessesList({ playerNames, guesses }) {
  *   onReveal: () => void,
  *   onRedrawQuestion: () => void,
  *   canRedrawQuestion: boolean,
+ *   onShowStandings: () => void,
  * }} options
  * @returns {HTMLElement}
  */
@@ -282,13 +383,14 @@ export function renderTurnScreen({
   onReveal,
   onRedrawQuestion,
   canRedrawQuestion,
+  onShowStandings,
 }) {
   const screen = el('div', { class: 'stack' }, [
     createQuestionBlock(question, questionNumber, totalQuestions),
-    // Zmiana pytania jest możliwa tylko przed pierwszym typem w tej rundzie.
-    guesses.length === 0
-      ? el('div', { class: 'gn-redraw' }, [
-          el('button', {
+    el('div', { class: 'gn-toolbar' }, [
+      // Zmiana pytania jest możliwa tylko przed pierwszym typem w tej rundzie.
+      guesses.length === 0
+        ? el('button', {
             class: 'button button--secondary button--compact',
             type: 'button',
             text: canRedrawQuestion
@@ -296,9 +398,16 @@ export function renderTurnScreen({
               : t('games.guess-number.noOther'),
             disabled: !canRedrawQuestion,
             onClick: onRedrawQuestion,
-          }),
-        ])
-      : null,
+          })
+        : null,
+      // Tabela wyników otwiera nakładkę i nie zmienia bieżącej tury.
+      el('button', {
+        class: 'button button--secondary button--compact gn-standings-button',
+        type: 'button',
+        text: t('games.guess-number.standingsButton'),
+        onClick: onShowStandings,
+      }),
+    ]),
   ]);
 
   screen.append(
@@ -415,12 +524,15 @@ export function renderTurnScreen({
 
 /**
  * Ekran odpowiedzi: prawidłowa odpowiedź z jednostką + ranking od najbliższego.
+ * Przy każdej osobie pokazujemy miejsce, punkty rundy i sumę partii.
  * @param {{
  *   playerNames: Map<string, string>,
  *   question: {text: string, answer: number, unit: string},
  *   questionNumber: number,
  *   totalQuestions: number,
  *   ranking: Array<{playerId: string, value: number, distance: number}>,
+ *   roundScores: Map<string, {points: number, place: number, exact: boolean}>,
+ *   totals: Map<string, number>,
  *   onNext: () => void,
  * }} options
  * @returns {HTMLElement}
@@ -431,6 +543,8 @@ export function renderAnswerScreen({
   questionNumber,
   totalQuestions,
   ranking,
+  roundScores,
+  totals,
   onNext,
 }) {
   const answerText = question.unit
@@ -457,25 +571,48 @@ export function renderAnswerScreen({
       el(
         'ol',
         { class: 'gn-ranking' },
-        ranking.map((entry, index) =>
-          el('li', { class: 'gn-ranking-row' }, [
-            el('span', { class: 'gn-rank', text: `${index + 1}.` }),
+        ranking.map((entry, index) => {
+          const score = roundScores.get(entry.playerId);
+          const place = score?.place ?? index + 1;
+          const exact = entry.distance === 0;
+
+          return el('li', { class: 'gn-ranking-row' }, [
+            el('span', { class: 'gn-rank', text: `${formatNumber(place)}.` }),
             el('span', {
               class: 'gn-ranking-name',
               text: getPlayerName(playerNames, entry.playerId),
             }),
             el('span', { class: 'gn-ranking-value', text: formatNumber(entry.value) }),
-            el('span', {
-              class: 'gn-ranking-distance',
-              text:
-                entry.distance === 0
-                  ? t('games.guess-number.exact')
-                  : t('games.guess-number.distance', {
+            el('span', { class: 'gn-ranking-distance' }, [
+              exact
+                ? el('span', {
+                    class: 'gn-exact',
+                    text: t('games.guess-number.exactBadge', {
+                      bonus: formatNumber(EXACT_HIT_BONUS),
+                    }),
+                  })
+                : el('span', {
+                    text: t('games.guess-number.distance', {
                       distance: formatNumber(entry.distance),
                     }),
-            }),
-          ]),
-        ),
+                  }),
+            ]),
+            el('span', { class: 'gn-ranking-score' }, [
+              el('span', {
+                class: 'gn-round-points',
+                text: t('games.guess-number.roundPoints', {
+                  points: formatNumber(score?.points ?? 0),
+                }),
+              }),
+              el('span', {
+                class: 'gn-total-points',
+                text: t('games.guess-number.totalPoints', {
+                  total: formatNumber(totals.get(entry.playerId) ?? 0),
+                }),
+              }),
+            ]),
+          ]);
+        }),
       ),
       el('p', {
         class: 'gn-hint',
@@ -493,24 +630,82 @@ export function renderAnswerScreen({
 }
 
 /**
- * Ekran końca partii — pytania się skończyły.
- * @param {{totalQuestions: number, onExit: () => void}} options
+ * Lista tabeli wyników: miejsce, imię (z mapy id → imię) i suma punktów.
+ * @param {{
+ *   playerNames: Map<string, string>,
+ *   standings: Array<{playerId: string, total: number, place: number}>,
+ * }} options
  * @returns {HTMLElement}
  */
-export function renderFinishedScreen({ totalQuestions, onExit }) {
+function createStandingsList({ playerNames, standings }) {
+  return el(
+    'ol',
+    { class: 'gn-standings' },
+    standings.map((entry) =>
+      el('li', { class: 'gn-standing-row' }, [
+        el('span', { class: 'gn-rank', text: `${formatNumber(entry.place)}.` }),
+        el('span', {
+          class: 'gn-standing-name',
+          text: getPlayerName(playerNames, entry.playerId),
+        }),
+        el('span', {
+          class: 'gn-standing-total',
+          text: t('games.guess-number.totalPoints', { total: formatNumber(entry.total) }),
+        }),
+      ]),
+    ),
+  );
+}
+
+/**
+ * Imiona w jednym zdaniu: „Ala i Bartek” (spójnik pochodzi z tłumaczeń).
+ * @param {string[]} names
+ * @returns {string}
+ */
+function formatNamesList(names) {
+  if (names.length <= 1) {
+    return names.join('');
+  }
+
+  const head = names.slice(0, -1).join(', ');
+  return `${head}${t('games.guess-number.namesAnd')}${names[names.length - 1]}`;
+}
+
+/**
+ * Ekran końca partii — tabela końcowa i ogłoszenie zwycięzcy lub zwycięzców.
+ * @param {{
+ *   playerNames: Map<string, string>,
+ *   totalQuestions: number,
+ *   standings: Array<{playerId: string, total: number, place: number}>,
+ *   winners: string[],
+ *   onExit: () => void,
+ * }} options
+ * @returns {HTMLElement}
+ */
+export function renderFinishedScreen({ playerNames, totalQuestions, standings, winners, onExit }) {
+  const winnerNames = winners.map((playerId) => getPlayerName(playerNames, playerId));
+  const announcement =
+    winnerNames.length > 1
+      ? t('games.guess-number.winnersTie', { names: formatNamesList(winnerNames) })
+      : t('games.guess-number.winner', { name: winnerNames[0] ?? '—' });
+
   return el('div', { class: 'stack' }, [
     el('div', { class: 'panel gn-answer' }, [
       el('p', { class: 'gn-answer-label', text: t('games.guess-number.finishLabel') }),
-      el('p', {
-        class: 'gn-question',
-        text: t('games.guess-number.finishTitle'),
-      }),
+      el('p', { class: 'gn-winner' }, [
+        el('span', { class: 'gn-winner-icon', 'aria-hidden': 'true', text: '🏆' }),
+        el('span', { text: announcement }),
+      ]),
       el('p', {
         class: 'gn-hint',
         text: t('games.guess-number.finishHint', {
           count: formatNumber(totalQuestions),
         }),
       }),
+    ]),
+    el('div', { class: 'panel' }, [
+      el('h2', { class: 'panel__title', text: t('games.guess-number.finishStandingsTitle') }),
+      createStandingsList({ playerNames, standings }),
     ]),
     el('button', {
       class: 'button button--primary button--block',
@@ -561,6 +756,54 @@ export function renderExitDialog({ onConfirm, onCancel }) {
       ],
     ),
   ]);
+}
+
+/**
+ * Nakładka z aktualną tabelą wyników (otwierana przyciskiem „Wyniki”).
+ * Tylko czyta przekazane dane — nie zmienia stanu tury.
+ * @param {{
+ *   playerNames: Map<string, string>,
+ *   standings: Array<{playerId: string, total: number, place: number}>,
+ *   onClose: () => void,
+ * }} options
+ * @returns {HTMLElement}
+ */
+export function renderStandingsDialog({ playerNames, standings, onClose }) {
+  const overlay = el('div', { class: 'gn-sheet-overlay' }, [
+    el(
+      'div',
+      {
+        class: 'gn-sheet',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-labelledby': 'gn-standings-title',
+      },
+      [
+        el('h2', {
+          class: 'panel__title',
+          id: 'gn-standings-title',
+          text: t('games.guess-number.standingsTitle'),
+        }),
+        el('p', { class: 'gn-hint', text: t('games.guess-number.standingsHint') }),
+        createStandingsList({ playerNames, standings }),
+        el('button', {
+          class: 'button button--secondary button--block',
+          type: 'button',
+          text: t('games.guess-number.standingsClose'),
+          onClick: onClose,
+        }),
+      ],
+    ),
+  ]);
+
+  // Klik w tło (poza panelem) również zamyka nakładkę.
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      onClose();
+    }
+  });
+
+  return overlay;
 }
 
 function showError(node, message) {

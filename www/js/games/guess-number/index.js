@@ -7,10 +7,13 @@
  *    są cały czas widoczne (kolejność ma znaczenie),
  *  - po typach wszystkich graczy pokazujemy prawidłową odpowiedź i ranking rundy
  *    (najbliższy pierwszy; przy remisie odległości zostaje dotychczasowa kolejność),
- *  - kolejność graczy w następnym pytaniu = kolejność z rankingu,
+ *  - za rundę gracze dostają punkty: N − miejsce + 1 (metoda sportowa, remisy mają
+ *    wspólne miejsce), a trafienie dokładne daje bonus +2 — punkty sumują się,
+ *  - kolejność graczy w następnym pytaniu = kolejność z rankingu (niezależnie od punktów),
  *  - pytania są losowane pojedynczo z puli sesji (core/content-pool.js): kolejne
  *    partie nie powtarzają pytań, dopóki pula się nie wyczerpie,
- *  - brak punktów i brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
+ *  - partia kończy się po QUESTIONS_PER_GAME pytaniach; wygrywa najwyższa suma punktów,
+ *  - brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
 import { loadQuestions } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
@@ -19,14 +22,18 @@ import { getLanguage, t } from '../../core/i18n.js';
 import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
 import {
   addGuess,
+  addToTotals,
   canRedrawRound,
   computeRanking,
+  computeStandings,
   createInitialOrder,
   createNameMap,
   createOrderFromRanking,
   createPlayers,
   getCurrentPlayerId,
+  getWinners,
   hasGuessed,
+  scoreRound,
 } from './engine.js';
 import {
   createExitFooter,
@@ -35,6 +42,7 @@ import {
   renderAnswerScreen,
   renderExitDialog,
   renderFinishedScreen,
+  renderStandingsDialog,
   renderTurnScreen,
 } from './ui.js';
 
@@ -69,6 +77,8 @@ const getQuestionKey = (question) => question.text;
  *   turnIndex: number,
  *   guesses: Array<{playerId: string, value: number}>,
  *   ranking: Array<{playerId: string, value: number, distance: number}>,
+ *   totals: Map<string, number>,
+ *   roundScores: Map<string, {points: number, place: number, exact: boolean}>,
  *   phase: 'loading' | 'load-error' | 'turn' | 'ready' | 'answer' | 'finished',
  *   loadError: string,
  *   loadToken: number,
@@ -93,8 +103,13 @@ const game = {
       'games.guess-number.steps.3',
       'games.guess-number.steps.4',
       'games.guess-number.steps.5',
+      'games.guess-number.steps.6',
     ],
-    tipKeys: ['games.guess-number.tips.1', 'games.guess-number.tips.2'],
+    tipKeys: [
+      'games.guess-number.tips.1',
+      'games.guess-number.tips.2',
+      'games.guess-number.tips.3',
+    ],
   },
 
   /**
@@ -121,6 +136,8 @@ const game = {
       turnIndex: 0,
       guesses: [],
       ranking: [],
+      totals: new Map(),
+      roundScores: new Map(),
       phase: 'loading',
       loadError: '',
       loadToken: 0,
@@ -198,6 +215,9 @@ function startGame(questions) {
   state.turnIndex = 0;
   state.guesses = [];
   state.ranking = [];
+  // Nowa partia zawsze startuje od zera punktów.
+  state.totals = new Map();
+  state.roundScores = new Map();
   state.phase = state.question === null ? 'finished' : 'turn';
   renderState();
 }
@@ -251,9 +271,15 @@ function renderState() {
   }
 
   if (state.phase === 'finished') {
+    // Tabela końcowa liczona z sum punktów; remis sumy = kilku zwycięzców.
+    const standings = computeStandings(state.totals, state.players);
+
     container.append(
       renderFinishedScreen({
+        playerNames: state.playerNames,
         totalQuestions: state.totalQuestions,
+        standings,
+        winners: getWinners(standings),
         onExit: () => state.api.exit(),
       }),
     );
@@ -268,6 +294,8 @@ function renderState() {
         questionNumber: state.questionIndex + 1,
         totalQuestions: state.totalQuestions,
         ranking: state.ranking,
+        roundScores: state.roundScores,
+        totals: state.totals,
         onNext: goToNextQuestion,
       }),
     );
@@ -295,6 +323,7 @@ function renderState() {
         canRedrawRound(state.guesses) && state.question !== null
           ? hasOther(getQuestionPoolId(), state.questions, getQuestionKey, state.question.text)
           : false,
+      onShowStandings: openStandings,
     }),
   );
   container.append(createExitFooter(requestExit));
@@ -306,6 +335,37 @@ function requestExit() {
   }
   state.exitRequested = true;
   renderState();
+}
+
+/**
+ * Nakładka z tabelą wyników w trakcie partii.
+ *
+ * Tylko czyta stan (sumy punktów i listę graczy), więc nie zmienia tury, typów
+ * ani kolejności. Własna klasa nakładki (.gn-sheet-overlay) nie koliduje
+ * z dialogiem wyjścia (.gn-overlay) — oba mogą działać niezależnie.
+ */
+function openStandings() {
+  if (!state) {
+    return;
+  }
+
+  const { container } = state;
+
+  if (container.querySelector('.gn-sheet-overlay')) {
+    return;
+  }
+
+  const overlay = renderStandingsDialog({
+    playerNames: state.playerNames,
+    standings: computeStandings(state.totals, state.players),
+    onClose: () => {
+      overlay.remove();
+      container.querySelector('.gn-standings-button')?.focus();
+    },
+  });
+
+  container.append(overlay);
+  overlay.querySelector('button')?.focus();
 }
 
 /**
@@ -363,6 +423,9 @@ function revealAnswer() {
   }
 
   state.ranking = computeRanking(state.guesses, currentQuestion().answer);
+  // Punkty rundy liczone raz, przy odsłonięciu odpowiedzi — potem tylko sumowanie.
+  state.roundScores = scoreRound(state.ranking, state.players.length);
+  state.totals = addToTotals(state.totals, state.roundScores);
   state.phase = 'answer';
   renderState();
 }
@@ -379,6 +442,8 @@ function goToNextQuestion() {
   state.turnIndex = 0;
   state.guesses = [];
   state.ranking = [];
+  // Sumy punktów zostają; czyścimy tylko punktację poprzedniej rundy.
+  state.roundScores = new Map();
 
   if (state.questionIndex >= state.totalQuestions) {
     // Partia ma QUESTIONS_PER_GAME pytań (albo mniej, gdy w pliku jest ich mniej).
