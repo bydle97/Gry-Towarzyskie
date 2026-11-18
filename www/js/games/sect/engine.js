@@ -1,5 +1,6 @@
 /**
- * Silnik gry "Sekta" — czyste funkcje bez DOM.
+ * Silnik gry "Wampir" (historyczne id: sect) — czyste funkcje bez DOM.
+ * Nazwy w kodzie są historyczne: sect = wampiry, doctor = znachor, detective = łowca.
  *
  * Cały stan gry jest zwykłym obiektem, a każda funkcja zwraca NOWY stan
  * (kopiujemy tylko zmieniane fragmenty). Dzięki temu interfejs może trzymać
@@ -11,7 +12,7 @@
  *                      death: null albo { type: 'night'|'day'|'correction', number }
  *   nightNumber        numer bieżącej nocy (0 = jeszcze nie było nocy)
  *   nightChoices       { sectTargetId, doctorTargetId, detectiveTargetId, detectiveResult }
- *   previousDoctorTargetId  kogo lekarz chronił poprzedniej nocy
+ *   previousDoctorTargetId  kogo znachor chronił poprzedniej nocy
  *   nightLog[]         wpisy z rozstrzygnięciami nocy
  *   winner             'villagers' | 'sect' | null
  */
@@ -149,7 +150,7 @@ export function unmarkRoleChecked(state, playerId) {
 }
 
 /**
- * Wynik sprawdzenia przez śledczego dla wskazanej osoby.
+ * Wynik sprawdzenia przez łowcę dla wskazanej osoby.
  * @param {Object} state
  * @param {string} playerId
  * @returns {'sect'|'notSect'}
@@ -160,8 +161,8 @@ export function getDetectiveResultFor(state, playerId) {
 }
 
 /**
- * Rozstrzyga noc: ofiara sekty ginie, chyba że lekarz ją ochronił.
- * Dopisuje wpis do dziennika i zapamiętuje cel lekarza. Wybory nocy zostają
+ * Rozstrzyga noc: ofiara wampirów ginie, chyba że chroni ją znachor.
+ * Dopisuje wpis do dziennika i zapamiętuje cel znachora. Wybory nocy zostają
  * w stanie do momentu startu kolejnej nocy — dzięki temu Tablica mistrza gry
  * pokazuje oznaczenia bieżącej nocy także rano i w dzień.
  * Numer nocy pozostaje bez zmian (interfejs zwiększa go przy starcie kolejnej nocy).

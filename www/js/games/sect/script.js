@@ -7,7 +7,7 @@
  */
 import { t } from '../../core/i18n.js';
 
-/** Wynik sprawdzenia śledczego — pokazywany wyłącznie po przytrzymaniu przycisku. */
+/** Wynik sprawdzenia łowcy — pokazywany wyłącznie po przytrzymaniu przycisku. */
 export const DETECTIVE_RESULT_TEXTS = Object.freeze({
   get sect() {
     return t('games.sect.script.detectiveResult.sect');

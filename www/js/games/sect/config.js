@@ -1,5 +1,5 @@
 /**
- * Konfiguracja gry "Sekta": role, liczby i teksty pomocnicze.
+ * Konfiguracja gry "Wampir" (historyczne id: sect): role, liczby i teksty pomocnicze.
  *
  * Wszystkie liczby i nazwy ról trzymamy w jednym miejscu — reszta gry (silnik,
  * interfejs, scenariusz mistrza gry) czyta je stąd, więc zmiana balansu to
@@ -16,7 +16,11 @@ export const MAX_PLAYERS = 20;
 /** Domyślny czas dyskusji w dzień (w sekundach) — licznik można włączyć lub pominąć. */
 export const DISCUSSION_SECONDS = 180;
 
-/** Identyfikatory ról używane w stanie gry. */
+/**
+ * Identyfikatory ról używane w stanie gry. Są HISTORYCZNE (z czasów „Sekty”)
+ * i celowo się nie zmieniają: sect = wampir, doctor = znachor, detective = łowca,
+ * villager = mieszkaniec. Widoczne nazwy pochodzą z tłumaczeń games.sect.roles.*.
+ */
 export const ROLE_IDS = Object.freeze({
   villager: 'villager',
   sect: 'sect',
@@ -40,7 +44,7 @@ export const ROLES = Object.freeze({
   }),
   [ROLE_IDS.sect]: Object.freeze({
     id: ROLE_IDS.sect,
-    icon: '🕯️',
+    icon: '🧛',
     get name() {
       return t('games.sect.roles.sect.name');
     },
@@ -50,7 +54,7 @@ export const ROLES = Object.freeze({
   }),
   [ROLE_IDS.doctor]: Object.freeze({
     id: ROLE_IDS.doctor,
-    icon: '💉',
+    icon: '🌿',
     get name() {
       return t('games.sect.roles.doctor.name');
     },
@@ -79,7 +83,7 @@ export const ROLE_ORDER = Object.freeze([
 ]);
 
 /**
- * Liczba sekciarzy zależnie od liczby grających:
+ * Liczba wampirów zależnie od liczby grających:
  * 5–7 → 1, 8–11 → 2, 12–15 → 3, 16–20 → 4.
  * @param {number} playerCount
  * @returns {number}
@@ -98,7 +102,7 @@ export function getSectCount(playerCount) {
 }
 
 /**
- * Skład ról dla podanej liczby grających (lekarz i śledczy zawsze po jednym).
+ * Skład ról dla podanej liczby grających (znachor i łowca zawsze po jednym).
  * @param {number} playerCount
  * @returns {{sect: number, doctor: number, detective: number, villager: number}}
  */
@@ -117,7 +121,7 @@ export function getLineup(playerCount) {
 
 /**
  * Opis składu do podglądu na ekranie przygotowania,
- * np. "2 sekciarzy, 1 lekarz, 1 śledczy, 3 mieszkańców".
+ * np. "2 wampiry, 1 znachor, 1 łowca, 4 mieszkańców".
  * @param {{sect: number, doctor: number, detective: number, villager: number}} lineup
  * @returns {string}
  */

@@ -1,8 +1,13 @@
 /**
- * Gra "Sekta" (id: sect) — ukryte role, noc i dzień, mistrz gry.
+ * Gra "Wampir" (id: sect) — ukryte role, noc i dzień, mistrz gry.
+ *
+ * Uwaga: id "sect", nazwa folderu, klucze tłumaczeń "games.sect.*" oraz wewnętrzne
+ * identyfikatory ról (sect = wampir, doctor = znachor, detective = łowca) są
+ * HISTORYCZNE — gra nazywała się wcześniej „Sekta”. Zostają bez zmian, żeby nie
+ * psuć kluczy i stanu; wszystkie widoczne teksty pochodzą z tłumaczeń.
  *
  * Etap A: przygotowanie (wybór mistrza gry i podgląd składu) oraz sprawdzanie ról.
- * Etap B: scenariusz mistrza gry — noc (sekta, lekarz, śledczy), poranek z
+ * Etap B: scenariusz mistrza gry — noc (wampiry, znachor, łowca), poranek z
  * rozstrzygnięciem, dzień z dyskusją i głosowaniem, ekran końcowy.
  * Logika (losowanie ról, rozstrzyganie nocy, warunki wygranej) siedzi w engine.js
  * jako czyste funkcje bez DOM; teksty mistrza gry są w script.js; ten plik tylko
@@ -88,10 +93,11 @@ import {
 let state = null;
 
 const game = {
+  // Historyczne id (dawniej „Sekta”) — nie zmieniać, widoczna nazwa to „Wampir” z tłumaczeń.
   id: 'sect',
   nameKey: 'games.sect.name',
   descriptionKey: 'games.sect.description',
-  icon: '🕯️',
+  icon: '🧛',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 20,
 
@@ -241,7 +247,7 @@ function renderState({ keepScroll = false } = {}) {
     window.scrollTo(0, 0);
   }
 
-  // Nowy ekran (faza, podgląd, krok nocy, wynik śledczego) — krótka blokada dotknięć.
+  // Nowy ekran (faza, podgląd, krok nocy, wynik łowcy) — krótka blokada dotknięć.
   // Zaznaczenie osoby na liście (ten sam ekran) blokady nie włącza.
   const screenKey = [
     state.previewOpen ? 'preview' : state.phase,
@@ -607,7 +613,7 @@ function startNight() {
   renderState();
 }
 
-/** Rysuje bieżący krok nocy: informację, wybór osoby albo tajny wynik śledczego. */
+/** Rysuje bieżący krok nocy: informację, wybór osoby albo tajny wynik łowcy. */
 function renderNight() {
   const step = state.nightSteps[state.nightStep];
 

@@ -1,5 +1,5 @@
 /**
- * Widoki gry "Sekta" oraz jej lokalne style.
+ * Widoki gry "Wampir" (historyczne id: sect, klasy CSS "sec-") oraz jej lokalne style.
  *
  * Style są wstrzykiwane do <head> przy starcie partii i usuwane w unmount(),
  * więc gra nie wymaga zmian w css/ HUB-a. Klasy mają prefiks "sec-".
@@ -389,7 +389,7 @@ const STYLES = `
   font-size: 1.05rem;
 }
 
-/* Tajny wynik (śledczy) i szczegóły poranka. */
+/* Tajny wynik (łowca) i szczegóły poranka. */
 .sec-secret-inner {
   display: flex;
   flex-direction: column;
@@ -592,10 +592,10 @@ export function removeStyles() {
   document.getElementById(STYLE_ELEMENT_ID)?.remove();
 }
 
-/** Nagłówek ekranu: ikona świecy, tytuł i krótki opis. */
+/** Nagłówek ekranu: ikona wampira, tytuł i krótki opis. */
 function createHead(title, subtitle) {
   return el('header', { class: 'sec-head' }, [
-    el('span', { class: 'sec-head__icon', 'aria-hidden': 'true', text: '🕯️' }),
+    el('span', { class: 'sec-head__icon', 'aria-hidden': 'true', text: '🧛' }),
     el('h2', { class: 'sec-head__title', text: title }),
     el('p', { class: 'sec-head__subtitle', text: subtitle }),
   ]);
@@ -1173,7 +1173,7 @@ export function renderGmInfoScreen({
   });
 }
 
-/** Ekran wyboru osoby (sekta, lekarz, śledczy, głosowanie w dzień). */
+/** Ekran wyboru osoby (wampiry, znachor, łowca, głosowanie w dzień). */
 export function renderGmPickScreen({
   label,
   sayText,
@@ -1206,7 +1206,7 @@ export function renderGmPickScreen({
   });
 }
 
-/** Ekran tajnego wyniku sprawdzenia śledczego (widoczny tylko po przytrzymaniu). */
+/** Ekran tajnego wyniku sprawdzenia przez łowcę (widoczny tylko po przytrzymaniu). */
 export function renderDetectiveResultScreen({
   label,
   sayText,
