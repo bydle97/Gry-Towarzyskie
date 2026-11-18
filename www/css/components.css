@@ -488,6 +488,7 @@
 
 .details__badge--count {
   border-color: rgba(255, 179, 71, 0.5);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
   color: var(--color-accent);
 }
 

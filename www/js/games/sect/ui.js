@@ -23,6 +23,7 @@ const STYLES = `
   padding: var(--space-4) var(--space-3);
   border-radius: var(--radius-lg);
   background-image: radial-gradient(80% 100% at 50% 0%, rgba(255, 179, 71, 0.14), transparent 70%);
+  background-image: radial-gradient(80% 100% at 50% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 70%);
   text-align: center;
 }
 
@@ -221,6 +222,7 @@ const STYLES = `
 
 .sec-done {
   border-color: rgba(255, 179, 71, 0.5);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
 .sec-done__text {
@@ -268,6 +270,7 @@ const STYLES = `
 
 .sec-hold--active {
   border-color: rgba(255, 179, 71, 0.6);
+  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
   background-color: var(--color-surface-strong);
   color: var(--color-accent);
 }
@@ -420,7 +423,9 @@ const STYLES = `
 
 .sec-block--say {
   border-color: rgba(255, 179, 71, 0.45);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
   background-image: radial-gradient(80% 100% at 50% 0%, rgba(255, 179, 71, 0.12), transparent 70%);
+  background-image: radial-gradient(80% 100% at 50% 0%, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 70%);
 }
 
 .sec-block__label {
