@@ -10,12 +10,23 @@ Aplikacja na Androida to ta sama wersja webowa z folderu `www/`, zapakowana prze
 | `@capacitor/app` | 8.1.2 |
 | `@capacitor/haptics` | 8.0.2 |
 | `@capacitor/assets` (tylko generowanie ikon) | 4.0.0 |
+| `@capacitor-community/keep-awake` (ekran nie gaśnie w grze) | 8.0.1 |
 | Node (wymagany przez Capacitor 8) | 22 lub nowszy (w Actions: 24) |
 | JDK | 21 (Temurin) |
 | Gradle / Android Gradle Plugin | 8.14.3 / 8.13.0 |
 | minSdk / targetSdk | 24 (Android 7.0) / 36 |
 | appId | `pl.grytowarzyskie.app` (tymczasowe) |
 | versionName / versionCode | 0.1.0 / numer uruchomienia workflow |
+| Orientacja | tylko pionowa (układ gier projektowany pionowo, Ping-pong dzieli ekran na górę i dół) |
+| Kopia zapasowa Androida | wyłączona (`allowBackup="false"`) — aplikacja nie przechowuje danych |
+
+## Co robi wersja na Androida inaczej niż webowa
+- **Wstecz**: przycisk/gest Androida obsługuje `www/js/core/native.js` (wtyczka App): w grze okno „Zakończyć grę?”, poza grą krok wstecz, na ekranie głównym zamknięcie aplikacji.
+- **Wibracje**: wtyczka Haptics (w przeglądarce `navigator.vibrate`).
+- **Ekran nie gaśnie**: w Ping-pongu (pojedynek) i w Wampirze (od pierwszej nocy do końca gry) natywna flaga okna przez keep-awake; w przeglądarce Screen Wake Lock API.
+- **Wygląd okna**: tło okna, ekranu startowego i pasków systemowych `#0d1120` (bez białego błysku). Wcięcia ekranu (Android 15, edge-to-edge) obsługuje Capacitor 8 (`SystemBars.insetsHandling: "native"` w `capacitor.config.json`), a CSS używa `env(safe-area-inset-*)`.
+- **Ikona**: własny rysunek (`assets/src/*.svg`): `node tools/render-icons.mjs`, potem `npx capacitor-assets generate --android --iconBackgroundColor "#0d1120" --iconBackgroundColorDark "#0d1120" --splashBackgroundColor "#0d1120" --splashBackgroundColorDark "#0d1120"` (generator przeformatowuje `AndroidManifest.xml` — sprawdź, czy zostały `allowBackup="false"` i `screenOrientation="portrait"`).
+- Mostek do wtyczek bez bundlera: `www/js/vendor/native-bridge.js` (kopia `@capacitor/core`). Po aktualizacji Capacitora: `node tools/update-native-bridge.mjs`.
 
 ## Jak pobrać APK z GitHub Actions
 1. Otwórz repozytorium na GitHubie, zakładka **Actions**.
