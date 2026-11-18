@@ -1,0 +1,90 @@
+# Budowanie APK do testów (wersja debug, podpisana kluczem debug z Gradle).
+#
+# Uruchomienie:
+#   - ręcznie: zakładka Actions -> "Android APK (debug)" -> Run workflow,
+#   - automatycznie: wypchnięcie tagu apk-* (np. git tag apk-1 && git push origin apk-1).
+# Wynik: artefakt "gry-towarzyskie-<tag lub gałąź>-debug" z plikiem APK (30 dni).
+#
+# Wymagania (Capacitor 8): Node >= 22, JDK 21 (sourceCompatibility 21 w
+# android/app/capacitor.build.gradle). Android SDK jest już na runnerze ubuntu-latest.
+# versionCode = numer uruchomienia workflow (GITHUB_RUN_NUMBER, czytany w
+# android/app/build.gradle), więc każdy kolejny APK instaluje się jako aktualizacja.
+#
+# Wersje akcji sprawdzone w repozytoriach actions/* (listopad 2026):
+# checkout v7, setup-node v7, setup-java v6, upload-artifact v7.
+# Workflow nie potrzebuje żadnych sekretów i nie zmienia repozytorium.
+name: Android APK (debug)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'apk-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Budowanie APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Pobranie repozytorium
+        uses: actions/checkout@v7
+
+      - name: Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Java (Temurin 21)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Zależności npm (Capacitor)
+        run: npm ci
+
+      - name: Kopiowanie www/ do projektu Androida
+        run: npx cap sync android
+
+      - name: Sprawdzenie skopiowanych plików
+        run: |
+          for path in index.html js/main.js css/base.css locales/pl.json locales/en.json data/pl data/en; do
+            test -e "android/app/src/main/assets/public/$path" || { echo "Brak: $path"; exit 1; }
+          done
+          if [ -d www/fonts ]; then
+            test -d android/app/src/main/assets/public/fonts || { echo "Brak: fonts"; exit 1; }
+          fi
+
+      - name: Budowanie (gradlew assembleDebug)
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Nazwa i zawartość APK
+        id: apk
+        run: |
+          name="gry-towarzyskie-${GITHUB_REF_NAME//\//-}-debug"
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/$name.apk"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          unzip -l "dist/$name.apk" | grep -E "assets/public/(index.html|locales/|data/|fonts/)" | head -40
+          unzip -l "dist/$name.apk" | grep -q "assets/public/index.html"
+
+      - name: Wysłanie artefaktu
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: dist/${{ steps.apk.outputs.name }}.apk
+          retention-days: 30
+          if-no-files-found: error
