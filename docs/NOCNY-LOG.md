@@ -7,7 +7,7 @@ Dziennik pracy autonomicznej na gałęzi `noc`. Zadania: docs/ZADANIA-NOC.md.
 | Faza | Stan | Uwagi |
 |---|---|---|
 | 0. Ocena stanu | zrobione | |
-| 1. Poprawki z przeglądu | w toku | większość była już w kodzie |
+| 1. Poprawki z przeglądu | zrobione | większość była już w kodzie; dorobione D-6, P-1 |
 | 2. APK (Capacitor) | do zrobienia | |
 | 3. Wampir | do sprawdzenia | logika i UI były już w kodzie |
 | 4. Wygląd | do zrobienia | |
@@ -62,3 +62,22 @@ Wniosek: APK budowany wyłącznie w GitHub Actions. Bez `gh` nie pobiorę artefa
 | Faza 3 Wampir: role, hrabia, sługa, wiedźma, uczeń, komendant, wybór ról | w kodzie; brak `tools/test-vampire.mjs` (są `tools/sect-*.js`) |
 | Faza 4 wygląd | **do zrobienia** (brak www/fonts/) |
 | Faza 5 Android | `core/wake-lock.js` już jest; reszta do zrobienia |
+
+## 2026-11-19 00:50 — Faza 1: poprawki z przeglądu
+
+Większość punktów była już w kodzie (patrz tabela w fazie 0). Dorobione:
+- **D-6**: router po narysowaniu nowego ekranu przenosi focus na tytuł (nagłówek aplikacji albo pierwszy `h1/h2` ekranu, gdy nagłówek jest ukryty), `tabindex="-1"`, bez obwódki. Przy odświeżeniu po zmianie języka focus zostaje. Zablokowane karty gier: `aria-disabled="true"` zamiast `disabled`, kliknięcie ignorowane w kodzie.
+- **P-1**: nowy zwykły (nie modułowy) skrypt `www/js/startup-check.js`. Przy otwarciu z `file://` moduły ES w ogóle się nie ładują, więc `catch` w main.js nie zadziała; ten skrypt pokazuje wtedy komunikat w obu językach. Komunikat awaryjny w main.js też podpowiada serwer (w obu językach, bo i18n może być wtedy niedostępne).
+- **D-3, D-4, D-7, D-19**: sprawdzone, już zrobione wcześniej.
+- Nowe narzędzie `tools/serve.mjs` (serwer statyczny 127.0.0.1, bez zależności) do podglądu i testów.
+
+Decyzja: list zmienionych pytań (W-1) nie odtwarzam, bo dane były poprawione we wcześniejszych commitach autora (np. „nowe pytania do na oko”, „poprawki 1-3”); obecnie wszystkie odpowiedzi PL i EN to same cyfry (sprawdzone skryptem).
+
+### Sprawdzenia
+- `node --check` na wszystkich plikach JS: OK. `tools/test-content-pool.mjs`: OK. `tools/sect-*.js`: OK.
+- Przeglądarka: headless Chrome sterowany przez DevTools Protocol ze skryptu w Node (bez instalowania Playwrighta), serwer `tools/serve.mjs`.
+  - `__i18nCheck()`: pl i en 0 brakujących, 0 nadmiarowych, klucze rejestru gier 0 brakujących.
+  - Wszystkie zapytania sieciowe tylko do 127.0.0.1 (41 plików lokalnych przy starcie).
+  - Ekran główny i szczegóły każdej gry przy 360x800 i 320x568: focus na tytule, `scrollY = 0`, układ bez obcięć.
+  - Pełna partia „Na oko” (3 graczy, 8 pytań): typy „1 000” i „5 000” (twarda spacja) przyjęte jako liczby, na 8. pytaniu przycisk „Pokaż wynik”, ekran końcowy z tabelą.
+  - Gest „wstecz” (`history.back()`) w trakcie gry: okno „Zakończyć grę?”; „Zostań w grze” zostawia grę, kolejne „wstecz” znów pyta.
