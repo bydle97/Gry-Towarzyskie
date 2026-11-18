@@ -202,6 +202,8 @@
   "games.duel.starter": "{name} starts",
   "games.duel.start": "Start",
   "games.duel.pause": "Pause",
+  "games.duel.tapHint": "TAP WHEN YOU ANSWER",
+  "games.duel.waiting": "Waiting…",
   "games.duel.resume": "Resume",
   "games.duel.abort": "Abort the duel",
   "games.duel.exchanged": "Exchanged: {count}",

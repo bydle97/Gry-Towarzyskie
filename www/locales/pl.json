@@ -202,6 +202,8 @@
   "games.duel.starter": "Zaczyna: {name}",
   "games.duel.start": "Start",
   "games.duel.pause": "Pauza",
+  "games.duel.tapHint": "DOTKNIJ, GDY ODPOWIESZ",
+  "games.duel.waiting": "Czeka…",
   "games.duel.resume": "Wznów",
   "games.duel.abort": "Przerwij pojedynek",
   "games.duel.exchanged": "Wymieniono: {count}",

@@ -156,24 +156,32 @@ const STYLES = `
   -webkit-user-select: none;
 }
 
+/* Połowa ekranu wygląda jak duży, wypukły przycisk: ramka w kolorze drużyny,
+   zaokrąglenia, światło u góry (gradient) i cień pod spodem. Wciśnięcie (:active)
+   przesuwa przycisk w dół i zmniejsza cień. Margines trzyma go z dala od
+   paska z pauzą, więc obszar dotyku nie nachodzi na przyciski sterowania. */
 .dl-half {
   display: grid;
   place-items: center;
-  width: 100%;
-  margin: 0;
+  width: auto;
+  min-width: 0;
+  margin: var(--space-2) var(--space-3);
   padding: var(--space-3);
-  border: 0;
-  border-radius: 0;
+  border: 2px solid var(--team-color, var(--color-border));
+  border-radius: var(--radius-lg);
   background-color: var(--color-bg-soft);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.22) 100%);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45), 0 10px 22px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: var(--color-text);
   font: inherit;
   text-align: center;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 120ms ease, opacity 120ms ease;
+  transition: background-color 120ms ease, opacity 120ms ease, transform 80ms ease, box-shadow 80ms ease;
 }
 
-/* Górna połowa jest obrócona, żeby osoba naprzeciwko widziała ją poprawnie. */
+/* Górna połowa jest obrócona, żeby osoba naprzeciwko widziała ją poprawnie
+   (obrót obejmuje też cień i efekt wciśnięcia). */
 .dl-half--top {
   transform: rotate(180deg);
 }
@@ -181,10 +189,92 @@ const STYLES = `
 .dl-half--active {
   background-color: var(--team-tint, var(--color-surface));
   opacity: 1;
+  animation: dl-glow 1.4s ease-in-out infinite;
+}
+
+.dl-half--active:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  animation: none;
+}
+
+.dl-half--top.dl-half--active:active {
+  transform: rotate(180deg) translateY(4px);
 }
 
 .dl-half--idle {
-  opacity: 0.55;
+  opacity: 0.5;
+  filter: saturate(0.6);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Pulsująca poświata aktywnego gracza (kolor drużyny). */
+@keyframes dl-glow {
+  0%,
+  100% {
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45), 0 0 0 0 var(--team-color, var(--color-accent)), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  50% {
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45), 0 0 22px 4px var(--team-color, var(--color-accent)), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-half--active {
+    animation: none;
+  }
+}
+
+.dl-half__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  padding: 6px var(--space-3);
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.3);
+  font-family: var(--font-game);
+  font-size: clamp(1.05rem, 5vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.dl-half__hint-icon {
+  font-size: 1.3em;
+  line-height: 1;
+}
+
+.dl-half__hint--waiting {
+  background-color: transparent;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-text-muted);
+}
+
+.dl-half__hint--waiting .dl-half__hint-icon {
+  display: none;
+}
+
+/* Niskie ekrany (np. 320x568): mniejsze odstępy i zegar, żeby całość mieściła się w połowie. */
+@media (max-height: 640px) {
+  .dl-half {
+    margin: 6px var(--space-2);
+    padding: var(--space-2);
+  }
+
+  .dl-half__inner {
+    gap: 2px;
+  }
+
+  .dl-half__time {
+    font-size: clamp(2.4rem, 13vw, 3.4rem);
+  }
+
+  .dl-half__hint {
+    margin-top: 4px;
+    padding: 4px var(--space-3);
+    font-size: 1rem;
+  }
 }
 
 .dl-half:disabled {
@@ -505,7 +595,7 @@ export function createClockScreen({
   onResume,
   onAbort,
 }) {
-  /** @type {Record<string, {button: HTMLButtonElement, timeNode: HTMLElement, countNode: HTMLElement, barNode: HTMLElement}>} */
+  /** @type {Record<string, {button: HTMLButtonElement, timeNode: HTMLElement, countNode: HTMLElement, barNode: HTMLElement, hintNode: HTMLElement, hintTextNode: HTMLElement}>} */
   const halves = {};
 
   const startLabel = el('p', {
@@ -559,6 +649,13 @@ export function createClockScreen({
       text: t('games.duel.exchanged', { count: formatNumber(0) }),
     });
     const barNode = el('span', { class: 'dl-half__bar' });
+    // Podpowiedź na połowie: „👆 DOTKNIJ, GDY ODPOWIESZ” dla aktywnego gracza,
+    // „Czeka…” dla drugiego (ustawiana w update(); przed startem ukryta).
+    const hintTextNode = el('span', { class: 'dl-half__hint-text' });
+    const hintNode = el('span', { class: 'dl-half__hint', hidden: true }, [
+      el('span', { class: 'dl-half__hint-icon', 'aria-hidden': 'true', text: '👆' }),
+      hintTextNode,
+    ]);
 
     const button = el(
       'button',
@@ -587,11 +684,12 @@ export function createClockScreen({
           }),
           countNode,
           el('span', { class: 'dl-half__progress' }, [barNode]),
+          hintNode,
         ]),
       ],
     );
 
-    halves[team.id] = { button, timeNode, countNode, barNode };
+    halves[team.id] = { button, timeNode, countNode, barNode, hintNode, hintTextNode };
     return button;
   }
 
@@ -626,6 +724,11 @@ export function createClockScreen({
         count: formatNumber(model.counts[team.id]),
       });
       half.barNode.style.width = `${Math.max(0, Math.min(1, remaining / poolMs)) * 100}%`;
+
+      const showHint = model.started && !model.paused && !model.finished;
+      half.hintNode.hidden = !showHint;
+      half.hintNode.classList.toggle('dl-half__hint--waiting', !isActive);
+      half.hintTextNode.textContent = isActive ? t('games.duel.tapHint') : t('games.duel.waiting');
     }
 
     const showStart = !model.started && !model.finished;
