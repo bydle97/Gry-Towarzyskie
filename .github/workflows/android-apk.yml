@@ -65,8 +65,24 @@ jobs:
       - name: Budowanie (gradlew assembleDebug)
         working-directory: android
         run: |
+          set -o pipefail
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle.log
+
+      # Przy błędzie: najważniejsze linie z logu Gradle jako adnotacje (widoczne
+      # na stronie uruchomienia, także bez otwierania pełnego logu).
+      - name: Diagnostyka błędu Gradle
+        if: failure()
+        working-directory: android
+        run: |
+          test -f gradle.log || exit 0
+          grep -n -E "What went wrong|error:|ERROR:|FAILURE|Execution failed|AAPT|not found|Could not" gradle.log \
+            | grep -v -E "^[0-9]+:[[:space:]]+at " | head -15 | while IFS= read -r line; do
+              echo "::error title=Gradle::${line:0:600}"
+            done
+          grep -n -A6 "What went wrong" gradle.log | head -14 | while IFS= read -r line; do
+            echo "::error title=Gradle (szczegóły)::${line:0:600}"
+          done
 
       - name: Nazwa i zawartość APK
         id: apk
