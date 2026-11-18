@@ -5,5 +5,12 @@
   "android": {
     "allowMixedContent": false,
     "backgroundColor": "#0d1120"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
   }
 }
