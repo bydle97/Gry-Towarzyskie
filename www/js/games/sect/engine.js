@@ -9,7 +9,7 @@
  *
  * Stan gry:
  *   gmName             imię mistrza gry albo null (mistrz spoza listy)
- *   roleOptions        { commander, apprentice } — role dodatkowe tej partii
+ *   roleConfig         konfiguracja ról tej partii (config.js: { vampires, znachor, ... })
  *   players[]          { id, name, roleId, alive, death, roleChecked }
  *                      death: null albo { type: 'night'|'day'|'correction', number }
  *   nightNumber        numer bieżącej nocy (0 = jeszcze nie było nocy)
@@ -20,12 +20,27 @@
  *                      uczeń pełni rolę znachora (znachor nie żyje)
  *   commanderTakeover  null albo { commanderId, targetId, day } — komendant użył mocy
  *                      (raz na grę; od tej chwili jego rola jest jawna)
- *   nightLog[]         wpisy z rozstrzygnięciami nocy (z healerActorId — kto miał moc znachora)
+ *   witchPotions       { heal, poison } — które mikstury wiedźmy są jeszcze dostępne
+ *                      (zużycie zapisywane dopiero przy rozstrzygnięciu nocy)
+ *   nightLog[]         wpisy z rozstrzygnięciami nocy (z healerActorId — kto miał moc znachora,
+ *                      victimIds — kto zginął, savedBy — kto uratował ofiarę, wybory wiedźmy)
  *   dayLog[]           wpisy dnia, np. { type: 'commander', day, commanderId, targetId }
  *   winner             'villagers' | 'sect' | null
  */
 import { shuffle } from '../../core/random.js';
-import { MAX_PLAYERS, MIN_PLAYERS, ROLE_IDS, getLineup, normalizeOptionalRoles } from './config.js';
+import {
+  ACTIVE_ROLE_CONFIG_KEYS,
+  COUNT_MIN_VAMPIRES,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  MIN_VAMPIRES,
+  MIN_VILLAGERS_WARNING,
+  ROLE_CONFIG_KEYS,
+  ROLE_IDS,
+  ROLE_ID_BY_CONFIG_KEY,
+  VAMPIRES_WARNING_SHARE,
+  defaultRoleConfig,
+} from './config.js';
 
 /** Możliwe zwycięzcy. */
 export const WINNERS = Object.freeze({
@@ -41,46 +56,176 @@ export const COMMANDER_ERRORS = Object.freeze({
   invalidTarget: 'invalid-target',
 });
 
+/** Kody błędów i ostrzeżeń walidacji konfiguracji ról (teksty: games.sect.setup.*). */
+export const ROLE_CONFIG_ISSUES = Object.freeze({
+  noVampires: 'noVampires',
+  vampireMajority: 'vampireMajority',
+  tooManyRoles: 'tooManyRoles',
+  apprenticeWithoutHealer: 'apprenticeWithoutHealer',
+  countNeedsVampires: 'countNeedsVampires',
+  manyVampires: 'manyVampires',
+  fewVillagers: 'fewVillagers',
+  apprenticeOff: 'apprenticeOff',
+  countOff: 'countOff',
+});
+
 /**
- * Lista ról dla podanej liczby grających i ról dodatkowych (bez tasowania).
- * To jest „skład ról dla danej liczby graczy” — liczby bierze z config.js.
+ * Porządkuje konfigurację ról: liczba wampirów całkowita i co najmniej 1, role
+ * jeszcze nieaktywne zawsze wyłączone, a przełączniki łamiące zależności
+ * wyłączone automatycznie (uczeń bez znachora, hrabia przy mniej niż 2 wampirach).
+ * Zwraca też notatki o automatycznym wyłączeniu (do krótkiego wyjaśnienia na ekranie).
  * @param {number} playerCount
- * @param {{commander?: boolean, apprentice?: boolean}} [roleOptions] domyślnie wg liczby graczy
+ * @param {Object} [config] domyślnie defaultRoleConfig(playerCount)
+ * @returns {{config: Object, notes: string[]}}
+ */
+export function normalizeRoleConfig(playerCount, config = defaultRoleConfig(playerCount)) {
+  const vampires = Number.isInteger(config?.vampires) ? config.vampires : MIN_VAMPIRES;
+  const result = { vampires: Math.max(MIN_VAMPIRES, vampires) };
+  const notes = [];
+
+  for (const key of ROLE_CONFIG_KEYS) {
+    result[key] = ACTIVE_ROLE_CONFIG_KEYS.includes(key) && config?.[key] === true;
+  }
+
+  if (result.uczen && !result.znachor) {
+    result.uczen = false;
+    notes.push(ROLE_CONFIG_ISSUES.apprenticeOff);
+  }
+  if (result.hrabia && result.vampires < COUNT_MIN_VAMPIRES) {
+    result.hrabia = false;
+    notes.push(ROLE_CONFIG_ISSUES.countOff);
+  }
+
+  return { config: result, notes };
+}
+
+/**
+ * Ile miejsc zajmują role z konfiguracji (wampiry + włączone role specjalne).
+ * Hrabia jest jednym z wampirów, więc nie dodaje miejsca.
+ * @param {Object} config
+ * @returns {number}
+ */
+export function countRoleSlots(config) {
+  let slots = config.vampires;
+
+  for (const key of ROLE_CONFIG_KEYS) {
+    if (key !== 'hrabia' && config[key] === true) {
+      slots += 1;
+    }
+  }
+
+  return slots;
+}
+
+/**
+ * Liczba zwykłych mieszkańców: reszta grających po rozdaniu ról z konfiguracji.
+ * Może wyjść ujemna, gdy ról jest za dużo (walidacja zgłasza wtedy błąd).
+ * @param {number} playerCount
+ * @param {Object} config
+ * @returns {number}
+ */
+export function countVillagers(playerCount, config) {
+  return playerCount - countRoleSlots(config);
+}
+
+/**
+ * Sprawdza konfigurację ról dla liczby grających.
+ * Błędy (blokują rozdanie ról): mniej niż 1 wampir; wampiry od razu mają przewagę
+ * (wampirów ≥ pozostałych graczy); ról więcej niż grających; uczeń bez znachora;
+ * hrabia przy mniej niż 2 wampirach.
+ * Ostrzeżenia (nie blokują): wampirów więcej niż 1/3 grających; mniej niż
+ * 2 zwykłych mieszkańców.
+ * @param {number} playerCount
+ * @param {Object} config
+ * @returns {{ok: boolean, errors: Array<{code: string, params: Object}>, warnings: Array<{code: string, params: Object}>}}
+ */
+export function validateRoleConfig(playerCount, config) {
+  const errors = [];
+  const warnings = [];
+  const vampires = Number.isInteger(config?.vampires) ? config.vampires : 0;
+  const slots = countRoleSlots({ ...config, vampires });
+  const villagers = playerCount - slots;
+
+  if (vampires < MIN_VAMPIRES) {
+    errors.push({ code: ROLE_CONFIG_ISSUES.noVampires, params: { min: MIN_VAMPIRES } });
+  }
+  if (vampires >= MIN_VAMPIRES && vampires >= playerCount - vampires) {
+    errors.push({
+      code: ROLE_CONFIG_ISSUES.vampireMajority,
+      params: { vampires, others: playerCount - vampires },
+    });
+  }
+  if (slots > playerCount) {
+    errors.push({ code: ROLE_CONFIG_ISSUES.tooManyRoles, params: { roles: slots, players: playerCount } });
+  }
+  if (config?.uczen === true && config?.znachor !== true) {
+    errors.push({ code: ROLE_CONFIG_ISSUES.apprenticeWithoutHealer, params: {} });
+  }
+  if (config?.hrabia === true && vampires < COUNT_MIN_VAMPIRES) {
+    errors.push({ code: ROLE_CONFIG_ISSUES.countNeedsVampires, params: { min: COUNT_MIN_VAMPIRES } });
+  }
+
+  if (vampires > playerCount * VAMPIRES_WARNING_SHARE) {
+    warnings.push({ code: ROLE_CONFIG_ISSUES.manyVampires, params: { vampires } });
+  }
+  if (slots <= playerCount && villagers < MIN_VILLAGERS_WARNING) {
+    warnings.push({
+      code: ROLE_CONFIG_ISSUES.fewVillagers,
+      params: { villagers, min: MIN_VILLAGERS_WARNING },
+    });
+  }
+
+  return { ok: errors.length === 0, errors, warnings };
+}
+
+/**
+ * Lista ról dla liczby grających według konfiguracji (bez tasowania):
+ * wampiry, role specjalne z konfiguracji, reszta mieszkańcy.
+ * Rzuca błąd przy niepoprawnej konfiguracji — interfejs nie pozwala wtedy rozdać ról.
+ * @param {number} playerCount
+ * @param {Object} [config] domyślnie defaultRoleConfig(playerCount)
  * @returns {string[]}
  */
-export function buildRoleList(playerCount, roleOptions) {
+export function buildRoleList(playerCount, config = defaultRoleConfig(playerCount)) {
   if (!Number.isInteger(playerCount) || playerCount < MIN_PLAYERS || playerCount > MAX_PLAYERS) {
     throw new Error(`Liczba grających musi mieścić się w zakresie ${MIN_PLAYERS}–${MAX_PLAYERS}.`);
   }
 
-  const lineup = getLineup(playerCount, roleOptions);
-  const counts = [
-    [ROLE_IDS.sect, lineup.sect],
-    [ROLE_IDS.doctor, lineup.doctor],
-    [ROLE_IDS.apprentice, lineup.apprentice],
-    [ROLE_IDS.detective, lineup.detective],
-    [ROLE_IDS.commander, lineup.commander],
-    [ROLE_IDS.villager, lineup.villager],
-  ];
-  const roles = [];
+  const { config: normalized } = normalizeRoleConfig(playerCount, config);
+  const validation = validateRoleConfig(playerCount, normalized);
 
-  for (const [roleId, count] of counts) {
-    for (let index = 0; index < count; index += 1) {
-      roles.push(roleId);
+  if (!validation.ok) {
+    throw new Error(`Niepoprawna konfiguracja ról: ${validation.errors.map((e) => e.code).join(', ')}.`);
+  }
+
+  const roles = [];
+  // Hrabia zajmuje jedno miejsce z puli wampirów (dodaje go pętla ról niżej).
+  const plainVampires = normalized.vampires - (normalized.hrabia ? 1 : 0);
+
+  for (let index = 0; index < plainVampires; index += 1) {
+    roles.push(ROLE_IDS.sect);
+  }
+  for (const key of ACTIVE_ROLE_CONFIG_KEYS) {
+    if (normalized[key] && ROLE_ID_BY_CONFIG_KEY[key]) {
+      roles.push(ROLE_ID_BY_CONFIG_KEY[key]);
     }
+  }
+  while (roles.length < playerCount) {
+    roles.push(ROLE_IDS.villager);
   }
 
   return roles;
 }
 
 /**
- * Losowo przypisuje role graczom. Identyfikatory graczy są stałe przez całą partię.
+ * Losowo przypisuje role graczom (core/random.js) zgodnie z konfiguracją.
+ * Identyfikatory graczy są stałe przez całą partię.
  * @param {string[]} playerNames
- * @param {{commander?: boolean, apprentice?: boolean}} [roleOptions]
+ * @param {Object} [config] konfiguracja ról
  * @returns {Array<{id: string, name: string, roleId: string, alive: boolean, death: null, roleChecked: boolean}>}
  */
-export function assignRoles(playerNames, roleOptions) {
-  const roleIds = shuffle(buildRoleList(playerNames.length, roleOptions));
+export function assignRoles(playerNames, config) {
+  const roleIds = shuffle(buildRoleList(playerNames.length, config));
 
   return playerNames.map((name, index) => ({
     id: `p${index + 1}`,
@@ -99,7 +244,18 @@ export function createEmptyNightChoices() {
     doctorTargetId: null,
     detectiveTargetId: null,
     detectiveResult: null,
+    // true = łowca sprawdził hrabiego i dostał wynik zafałszowany („nie wampir”).
+    detectiveFaked: false,
+    // Wybory wiedźmy tej nocy. Mikstury są zużywane dopiero w resolveNight(),
+    // więc „Cofnij krok” (przywrócenie migawki wyborów) przywraca też mikstury.
+    witchHeal: false,
+    witchPoisonTargetId: null,
   };
+}
+
+/** Mikstury wiedźmy na początku partii: obie dostępne (każda raz w grze). */
+export function createWitchPotions() {
+  return { heal: true, poison: true };
 }
 
 /**
@@ -107,23 +263,23 @@ export function createEmptyNightChoices() {
  * @param {{
  *   gmName?: string|null,
  *   playerNames: string[],
- *   roleOptions?: {commander?: boolean, apprentice?: boolean},
- * }} options roleOptions — domyślnie wg liczby graczy (config.js)
+ *   roleConfig?: Object,
+ * }} options roleConfig — konfiguracja ról (domyślnie wg liczby graczy, config.js)
  * @returns {Object}
  */
-export function createGameState({ gmName = null, playerNames, roleOptions }) {
-  // Przełączniki są normalizowane, żeby skład zawsze mieścił się w liczbie graczy.
-  const options = normalizeOptionalRoles(playerNames.length, roleOptions);
+export function createGameState({ gmName = null, playerNames, roleConfig }) {
+  const { config } = normalizeRoleConfig(playerNames.length, roleConfig);
 
   return {
     gmName,
-    roleOptions: options,
-    players: assignRoles(playerNames, options),
+    roleConfig: config,
+    players: assignRoles(playerNames, config),
     nightNumber: 0,
     nightChoices: createEmptyNightChoices(),
     previousDoctorTargetId: null,
     healerInheritance: null,
     commanderTakeover: null,
+    witchPotions: createWitchPotions(),
     nightLog: [],
     dayLog: [],
     corrections: [],
@@ -155,9 +311,22 @@ export function getAlivePlayers(state) {
   return state.players.filter((player) => player.alive);
 }
 
-/** @param {{roleId: string}} player */
+/**
+ * Czy gracz jest wampirem (strona wampirów w warunkach wygranej i w ataku nocnym).
+ * Hrabia też jest wampirem. Sługa NIE jest wampirem — liczy się jako zwykły gracz.
+ * @param {{roleId: string}} player
+ */
 export function isSect(player) {
-  return player.roleId === ROLE_IDS.sect;
+  return player.roleId === ROLE_IDS.sect || player.roleId === ROLE_IDS.count;
+}
+
+/**
+ * Czy w partii gra sługa (wygrywa razem z wampirami, żywy czy martwy).
+ * @param {Object} state
+ * @returns {boolean}
+ */
+export function hasServant(state) {
+  return state.players.some((player) => player.roleId === ROLE_IDS.servant);
 }
 
 /**
@@ -191,14 +360,28 @@ export function unmarkRoleChecked(state, playerId) {
 }
 
 /**
- * Wynik sprawdzenia przez łowcę dla wskazanej osoby.
+ * Wynik sprawdzenia przez łowcę dla wskazanej osoby — to, co mistrz gry pokazuje
+ * łowcy. Zwykły wampir: „jest wampirem”. Hrabia i sługa: „nie jest wampirem”
+ * (u hrabiego to wynik zafałszowany — zob. isDetectionFaked).
  * @param {Object} state
  * @param {string} playerId
  * @returns {'sect'|'notSect'}
  */
 export function getDetectiveResultFor(state, playerId) {
   const player = getPlayerById(state, playerId);
-  return player && isSect(player) ? 'sect' : 'notSect';
+  return player && player.roleId === ROLE_IDS.sect ? 'sect' : 'notSect';
+}
+
+/**
+ * Czy wynik łowcy dla tej osoby jest zafałszowany (sprawdzany jest hrabia):
+ * łowca słyszy „nie wampir”, a mistrz gry widzi prawdę w dzienniku i na Tablicy.
+ * @param {Object} state
+ * @param {string} playerId
+ * @returns {boolean}
+ */
+export function isDetectionFaked(state, playerId) {
+  const player = getPlayerById(state, playerId);
+  return Boolean(player && player.roleId === ROLE_IDS.count);
 }
 
 /**
@@ -263,27 +446,155 @@ export function applyHealerInheritance(state) {
   };
 }
 
+/** Kody odmowy użycia mikstur wiedźmy (dla interfejsu i testów). */
+export const WITCH_ERRORS = Object.freeze({
+  noWitch: 'no-witch',
+  witchDead: 'witch-dead',
+  healUsed: 'heal-used',
+  poisonUsed: 'poison-used',
+  noVictim: 'no-victim',
+  invalidPoisonTarget: 'invalid-poison-target',
+});
+
 /**
- * Rozstrzyga noc: ofiara wampirów ginie, chyba że chroni ją osoba z mocą znachora.
- * Dopisuje wpis do dziennika (z healerActorId — kto miał moc znachora tej nocy)
- * i zapamiętuje cel ochrony. Wybory nocy zostają w stanie do startu kolejnej
- * nocy — dzięki temu Tablica pokazuje oznaczenia bieżącej nocy także rano i w dzień.
- * Po śmierci sprawdza dziedziczenie mocy znachora przez ucznia.
+ * Mikstury wiedźmy dostępne w tej chwili: stan z całej gry (witchPotions) minus
+ * mikstury wybrane już tej nocy (nightChoices — jeszcze nierozstrzygnięte).
+ * @param {Object} state
+ * @returns {{heal: boolean, poison: boolean}}
+ */
+export function getWitchPotionsAvailable(state) {
+  const potions = state.witchPotions ?? createWitchPotions();
+  const choices = state.nightChoices ?? {};
+
+  return {
+    heal: potions.heal && choices.witchHeal !== true,
+    poison: potions.poison && !choices.witchPoisonTargetId,
+  };
+}
+
+/**
+ * Czy wiedźma ma tej nocy prawdziwy krok: żyje i ma choć jedną miksturę.
+ * W przeciwnym razie (martwa albo bez mikstur) krok jest atrapą, żeby nikt nie
+ * poznał jej stanu. Gdy wiedźmy nie ma w składzie — zwraca false.
+ * @param {Object} state
+ * @returns {boolean}
+ */
+export function isWitchActive(state) {
+  const witch = getPlayerByRole(state, ROLE_IDS.witch);
+  const potions = state.witchPotions ?? createWitchPotions();
+  return Boolean(witch && witch.alive && (potions.heal || potions.poison));
+}
+
+/**
+ * Osoby, które wiedźma może otruć: żywi, bez samej wiedźmy.
+ * @param {Object} state
+ * @returns {Object[]}
+ */
+export function getWitchPoisonTargets(state) {
+  const witch = getPlayerByRole(state, ROLE_IDS.witch);
+  return getAlivePlayers(state).filter((player) => !witch || player.id !== witch.id);
+}
+
+/**
+ * Zapisuje wybór wiedźmy w tej nocy: uleczenie ofiary wampirów i/lub otrucie
+ * jednej żywej osoby (nie siebie). Można użyć obu, jednej albo żadnej mikstury.
+ * Każda mikstura raz w grze — druga próba jest odrzucana. Uleczenie ofiary, którą
+ * i tak chroni znachor, jest dozwolone (mikstura zostanie zużyta bez skutku —
+ * interfejs pyta wcześniej o potwierdzenie).
+ * @param {Object} state
+ * @param {{heal?: boolean, poisonTargetId?: string|null}} choice
+ * @returns {{ok: true, state: Object} | {ok: false, state: Object, error: string}}
+ *   przy odmowie zwraca niezmieniony stan i kod z WITCH_ERRORS
+ */
+export function applyWitchChoice(state, { heal = false, poisonTargetId = null } = {}) {
+  const witch = getPlayerByRole(state, ROLE_IDS.witch);
+
+  if (!witch) {
+    return { ok: false, state, error: WITCH_ERRORS.noWitch };
+  }
+  if (!witch.alive) {
+    return { ok: false, state, error: WITCH_ERRORS.witchDead };
+  }
+
+  const available = getWitchPotionsAvailable(state);
+
+  if (heal && !available.heal) {
+    return { ok: false, state, error: WITCH_ERRORS.healUsed };
+  }
+  if (heal && !state.nightChoices.sectTargetId) {
+    return { ok: false, state, error: WITCH_ERRORS.noVictim };
+  }
+  if (poisonTargetId && !available.poison) {
+    return { ok: false, state, error: WITCH_ERRORS.poisonUsed };
+  }
+  if (poisonTargetId && !getWitchPoisonTargets(state).some((player) => player.id === poisonTargetId)) {
+    return { ok: false, state, error: WITCH_ERRORS.invalidPoisonTarget };
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      nightChoices: {
+        ...state.nightChoices,
+        witchHeal: state.nightChoices.witchHeal === true || heal === true,
+        witchPoisonTargetId: state.nightChoices.witchPoisonTargetId ?? (poisonTargetId || null),
+      },
+    },
+  };
+}
+
+/**
+ * Rozstrzyga noc:
+ *  - ofiara wampirów ginie, chyba że chroni ją osoba z mocą znachora LUB wiedźma ją uleczyła,
+ *  - osoba otruta przez wiedźmę ginie zawsze (ochrona znachora nie działa na truciznę),
+ *  - gdy ofiara i otruta to ta sama osoba, ginie jedna osoba — w jednej nocy mogą więc
+ *    zginąć najwyżej dwie osoby,
+ *  - zużyte mikstury wiedźmy znikają z witchPotions (także uleczenie bez skutku).
+ * Dopisuje wpis do dziennika (healerActorId — kto miał moc znachora; victimIds — kto
+ * zginął; savedBy — kto uratował ofiarę) i zapamiętuje cel ochrony. Wybory nocy zostają
+ * w stanie do startu kolejnej nocy — Tablica pokazuje oznaczenia także rano i w dzień.
+ * Po śmierciach sprawdza dziedziczenie mocy znachora przez ucznia (także po otruciu).
  * Numer nocy pozostaje bez zmian (interfejs zwiększa go przy starcie kolejnej nocy).
  * @param {Object} state
  * @returns {Object} nowy stan
  */
 export function resolveNight(state) {
   const { sectTargetId, doctorTargetId, detectiveTargetId, detectiveResult } = state.nightChoices;
+  const detectiveFaked = state.nightChoices.detectiveFaked === true;
+  const witchHeal = state.nightChoices.witchHeal === true;
+  const witchPoisonTargetId = state.nightChoices.witchPoisonTargetId ?? null;
   const healerActor = getHealerActor(state);
-  const saved = sectTargetId !== null && sectTargetId === doctorTargetId;
-  const victimId = sectTargetId !== null && !saved ? sectTargetId : null;
+
+  const savedByHealer = sectTargetId !== null && sectTargetId === doctorTargetId;
+  const savedByWitch = sectTargetId !== null && witchHeal;
+  const saved = savedByHealer || savedByWitch;
+  let savedBy = null;
+
+  if (savedByHealer && savedByWitch) {
+    savedBy = 'both';
+  } else if (savedByHealer) {
+    savedBy = 'healer';
+  } else if (savedByWitch) {
+    savedBy = 'witch';
+  }
+
+  const victimIds = [];
+
+  if (sectTargetId !== null && !saved) {
+    victimIds.push(sectTargetId);
+  }
+  if (witchPoisonTargetId && !victimIds.includes(witchPoisonTargetId)) {
+    victimIds.push(witchPoisonTargetId);
+  }
 
   const players = state.players.map((player) =>
-    player.id === victimId
+    victimIds.includes(player.id) && player.alive
       ? { ...player, alive: false, death: { type: 'night', number: state.nightNumber } }
       : player,
   );
+
+  const potions = state.witchPotions ?? createWitchPotions();
 
   const entry = {
     night: state.nightNumber,
@@ -291,8 +602,14 @@ export function resolveNight(state) {
     doctorTargetId,
     detectiveTargetId,
     detectiveResult,
+    detectiveFaked,
+    witchHeal,
+    witchPoisonTargetId,
     saved,
-    victimId,
+    savedBy,
+    // victimId — pierwsza ofiara (zgodność z dotychczasowym dziennikiem), victimIds — wszystkie.
+    victimId: victimIds[0] ?? null,
+    victimIds,
     healerActorId: healerActor ? healerActor.id : null,
     healerActorIsApprentice: Boolean(healerActor && healerActor.roleId === ROLE_IDS.apprentice),
   };
@@ -300,14 +617,20 @@ export function resolveNight(state) {
   return applyHealerInheritance({
     ...state,
     players,
+    witchPotions: {
+      heal: potions.heal && !witchHeal,
+      poison: potions.poison && !witchPoisonTargetId,
+    },
     nightLog: [...state.nightLog, entry],
     previousDoctorTargetId: doctorTargetId,
   });
 }
 
 /**
- * Sprawdza warunek wygranej na podstawie żywych graczy (bez zmian po dodaniu
- * nowych ról: uczeń i komendant liczą się po stronie mieszkańców).
+ * Sprawdza warunek wygranej na podstawie żywych graczy.
+ * Wampiry (także hrabia) wygrywają, gdy jest ich tyle co pozostałych żywych lub
+ * więcej — sługa, uczeń i komendant liczą się tu jako pozostali gracze.
+ * Mieszkańcy wygrywają, gdy nie ma żywych wampirów (sługa nie ma znaczenia).
  * @param {Object} state
  * @returns {'villagers'|'sect'|null} null = gra toczy się dalej
  */
@@ -322,6 +645,21 @@ export function checkWin(state) {
     return WINNERS.sect;
   }
   return null;
+}
+
+/**
+ * Kto wygrał, z uwzględnieniem sługi — do ekranu końcowego i Tablicy:
+ * 'villagers', 'sect' (same wampiry), 'sectWithServant' (wampiry i sługa) albo null.
+ * @param {Object} state
+ * @returns {'villagers'|'sect'|'sectWithServant'|null}
+ */
+export function getWinnerOutcome(state) {
+  const winner = state.winner ?? checkWin(state);
+
+  if (winner === WINNERS.sect && hasServant(state)) {
+    return 'sectWithServant';
+  }
+  return winner;
 }
 
 /**
@@ -438,23 +776,24 @@ export function correctPlayerState(state, playerId, { alive }) {
 /**
  * Restart partii z tymi samymi osobami: role są losowane na nowo i wszyscy
  * sprawdzają je jeszcze raz (poprzednie role zostały ujawnione na ekranie końcowym).
- * Role dodatkowe (roleOptions) zostają takie jak w poprzedniej partii.
+ * Konfiguracja ról (roleConfig) zostaje taka jak w poprzedniej partii.
  * @param {Object} state
  * @returns {Object} nowy stan
  */
 export function restartGame(state) {
   const names = state.players.map((player) => player.name);
-  const options = normalizeOptionalRoles(names.length, state.roleOptions);
+  const { config } = normalizeRoleConfig(names.length, state.roleConfig);
 
   return {
     ...state,
-    roleOptions: options,
-    players: assignRoles(names, options),
+    roleConfig: config,
+    players: assignRoles(names, config),
     nightNumber: 0,
     nightChoices: createEmptyNightChoices(),
     previousDoctorTargetId: null,
     healerInheritance: null,
     commanderTakeover: null,
+    witchPotions: createWitchPotions(),
     nightLog: [],
     dayLog: [],
     corrections: [],

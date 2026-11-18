@@ -19,19 +19,23 @@ import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, guardTaps } from '../../c
 import { formatNumber, t } from '../../core/i18n.js';
 import { releaseWakeLock, requestWakeLock } from '../../core/wake-lock.js';
 import {
+  ACTIVE_ROLE_CONFIG_KEYS,
+  COUNT_MIN_VAMPIRES,
   DISCUSSION_SECONDS,
   MIN_PLAYERS,
+  MIN_VAMPIRES,
   ROLES,
-  canEnableOptionalRole,
-  formatLineup,
-  getDefaultOptionalRoles,
-  getLineup,
-  normalizeOptionalRoles,
+  ROLE_ID_BY_CONFIG_KEY,
+  defaultRoleConfig,
+  getRoleRevealName,
 } from './config.js';
 import {
   WINNERS,
   checkWin,
   correctPlayerState,
+  countVillagers,
+  normalizeRoleConfig,
+  validateRoleConfig,
   createEmptyNightChoices,
   createGameState,
   eliminatePlayer,
@@ -41,6 +45,12 @@ import {
   getDetectiveResultFor,
   getHealerActor,
   getPlayerByRole,
+  getWinnerOutcome,
+  getWitchPoisonTargets,
+  getWitchPotionsAvailable,
+  applyWitchChoice,
+  isDetectionFaked,
+  isWitchActive,
   markRoleChecked,
   resolveNight,
   restartGame,
@@ -49,10 +59,10 @@ import {
 import {
   DAY_TEXTS,
   DETECTIVE_RESULT_TEXTS,
-  FINISH_TEXTS,
   createNightSteps,
   getCommanderSay,
   getDayResultSay,
+  getFinishText,
   getMorningTexts,
 } from './script.js';
 import {
@@ -65,6 +75,7 @@ import {
   renderDayResultScreen,
   renderDayVoteScreen,
   renderDetectiveResultScreen,
+  renderWitchScreen,
   renderFinishedScreen,
   renderGmInfoScreen,
   renderGmPickScreen,
@@ -142,9 +153,10 @@ const game = {
       api,
       players: [...players],
       gmName: null,
-      // Role dodatkowe (komendant, uczeń): null = domyślne wg liczby grających;
-      // po ruszeniu przełącznika mistrz gry decyduje sam (pamięć tylko na czas gry).
-      roleOptions: null,
+      // Konfiguracja ról („Role w tej grze”): null = domyślna wg liczby grających;
+      // po pierwszej zmianie mistrz gry decyduje sam. Pamięć tylko na czas gry
+      // (także „Nowe role”), bez localStorage.
+      roleConfig: null,
       gameState: null,
       phase: 'setup',
       revealPlayerId: null,
@@ -160,6 +172,8 @@ const game = {
       selection: null,
       nightConfirmed: false,
       morningInfo: null,
+      // Szkic wyboru wiedźmy w kroku nocy (uleczenie / otrucie) przed „Zatwierdź”.
+      witchDraft: null,
       dayResult: null,
       discussionTimer: null,
       screenCleanup: null,
@@ -219,18 +233,21 @@ function renderState({ keepScroll = false } = {}) {
         state.dialog = null;
         dialog.onConfirm();
       },
-      onCancel: () => {
-        state.dialog = null;
-        container.querySelector('.sec-overlay')?.remove();
+      // Okno informacyjne (np. opis roli) ma tylko jeden przycisk.
+      onCancel: dialog.infoOnly
+        ? null
+        : () => {
+            state.dialog = null;
+            container.querySelector('.sec-overlay')?.remove();
 
-        if (typeof dialog.onCancel === 'function') {
-          dialog.onCancel();
-        }
-      },
+            if (typeof dialog.onCancel === 'function') {
+              dialog.onCancel();
+            }
+          },
     });
 
     container.append(overlay);
-    overlay.querySelector('.sec-dialog__cancel')?.focus();
+    (overlay.querySelector('.sec-dialog__cancel') ?? overlay.querySelector('button'))?.focus();
     return;
   }
 
@@ -244,12 +261,12 @@ function renderState({ keepScroll = false } = {}) {
       // Jawny komendant (po przejęciu głosowania) i przejęcie mocy znachora przez ucznia.
       revealedCommanderId: state.gameState.commanderTakeover?.commanderId ?? null,
       healerInheritance: state.gameState.healerInheritance ?? null,
-      winnerText:
-        state.gameState.winner === WINNERS.sect
-          ? FINISH_TEXTS.sect
-          : state.gameState.winner === WINNERS.villagers
-            ? FINISH_TEXTS.villagers
-            : '',
+      // Stan mikstur wiedźmy (z uwzględnieniem wyborów bieżącej nocy) — tylko gdy wiedźma gra.
+      witchPotions: getPlayerByRole(state.gameState, ROLES.witch.id)
+        ? getWitchPotionsAvailable(state.gameState)
+        : null,
+      // Spełniony warunek wygranej (z uwzględnieniem sługi) albo pusty tekst.
+      winnerText: state.gameState.winner ? getFinishText(getWinnerOutcome(state.gameState)) : '',
       onClose: closeBoard,
       onCorrect: askCorrectPlayer,
     });
@@ -355,60 +372,94 @@ function destroyScreen() {
  *   confirmLabel: string,
  *   onConfirm: () => void,
  *   onCancel?: () => void,
+ *   infoOnly?: boolean,
  * }} options
- *   onCancel — opcjonalnie wołane po „Anuluj” (np. powiadomienie routera po geście „wstecz”)
+ *   onCancel — opcjonalnie wołane po „Anuluj” (np. powiadomienie routera po geście „wstecz”),
+ *   infoOnly — okno informacyjne z jednym przyciskiem (bez „Anuluj”)
  */
-function openDialog({ title, message, confirmLabel, onConfirm, onCancel }) {
+function openDialog({ title, message, confirmLabel, onConfirm, onCancel, infoOnly = false }) {
   if (!state) {
     return;
   }
-  state.dialog = { title, message, confirmLabel, onConfirm, onCancel };
+  state.dialog = { title, message, confirmLabel, onConfirm, onCancel, infoOnly };
   renderState();
 }
 
 /**
- * Role dodatkowe dla bieżącej liczby grających: wybór mistrza gry albo wartości
- * domyślne, zawsze znormalizowane (skład musi się zmieścić w liczbie graczy).
+ * Konfiguracja ról dla bieżącej liczby grających: wybór mistrza gry albo domyślna,
+ * zawsze znormalizowana (np. uczeń bez znachora wyłączony z notatką).
+ * Po zmianie liczby grających (inny mistrz gry) wybór zostaje i jest walidowany na nowo.
  * @param {number} playingCount
- * @returns {{commander: boolean, apprentice: boolean}}
+ * @returns {{config: Object, notes: string[]}}
  */
-function getEffectiveRoleOptions(playingCount) {
-  return normalizeOptionalRoles(
-    playingCount,
-    state.roleOptions ?? getDefaultOptionalRoles(playingCount),
+function getEffectiveRoleConfig(playingCount) {
+  return normalizeRoleConfig(playingCount, state.roleConfig ?? defaultRoleConfig(playingCount));
+}
+
+/** Tekst komunikatu walidacji / notatki (klucze games.sect.setup.issues.*). */
+function describeRoleIssue({ code, params = {} }) {
+  const formatted = Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [key, formatNumber(value)]),
   );
+  return t(`games.sect.setup.issues.${code}`, formatted);
 }
 
 function renderSetup() {
   const playingNames = getPlayingNames();
   const playingCount = playingNames.length;
   const belowMinimum = playingCount < MIN_PLAYERS;
-  const roleOptions = getEffectiveRoleOptions(playingCount);
+  const { config, notes } = getEffectiveRoleConfig(playingCount);
+  const validation = validateRoleConfig(playingCount, config);
 
-  // Przełącznik jest zablokowany, gdy włączenie roli przekroczyłoby skład.
-  const optionalRoles = ['commander', 'apprentice'].map((key) => {
-    const noRoom = !belowMinimum && !roleOptions[key] && !canEnableOptionalRole(playingCount, roleOptions, key);
+  // Przełączniki zablokowane przez zależności: uczeń bez znachora, hrabia przy 1 wampirze.
+  const blockedBy = {
+    uczen: !config.znachor ? 'apprenticeOff' : null,
+    hrabia: config.vampires < COUNT_MIN_VAMPIRES ? 'countOff' : null,
+  };
 
-    return {
-      key,
-      checked: roleOptions[key],
-      disabled: belowMinimum || noRoom,
-      noRoom,
-    };
-  });
+  // Wiersze listy „Role w tej grze”: role aktywne (w kolejności z config.js).
+  const roleRows = ACTIVE_ROLE_CONFIG_KEYS.map((key) => ({
+    key,
+    role: ROLES[ROLE_ID_BY_CONFIG_KEY[key]],
+    checked: config[key],
+    disabled: Boolean(blockedBy[key]),
+    disabledReason: blockedBy[key] ? describeRoleIssue({ code: blockedBy[key] }) : '',
+  }));
+
+  const updateConfig = (changes) => {
+    state.roleConfig = { ...getEffectiveRoleConfig(playingCount).config, ...changes };
+    renderState({ keepScroll: true });
+  };
 
   state.container.append(
     renderSetupScreen({
       players: state.players,
       gmName: state.gmName,
       playingCount,
-      lineupText: belowMinimum ? '' : formatLineup(getLineup(playingCount, roleOptions)),
       belowMinimum,
-      optionalRoles,
-      onToggleRole: (key, checked) => {
-        state.roleOptions = { ...getEffectiveRoleOptions(playingCount), [key]: checked };
+      roleSetup: {
+        vampireRole: ROLES.sect,
+        vampires: config.vampires,
+        canDecreaseVampires: config.vampires > MIN_VAMPIRES,
+        canIncreaseVampires: config.vampires < playingCount - 1,
+        rows: roleRows,
+        villagers: Math.max(0, countVillagers(playingCount, config)),
+        errors: belowMinimum ? [] : validation.errors.map(describeRoleIssue),
+        warnings: belowMinimum ? [] : validation.warnings.map(describeRoleIssue),
+        // Notatki o automatycznym wyłączeniu roli (np. hrabia przy 1 wampirze),
+        // jeśli nie są już opisane przy zablokowanym przełączniku.
+        notes: notes
+          .filter((code) => !Object.values(blockedBy).includes(code))
+          .map((code) => describeRoleIssue({ code })),
+      },
+      canDeal: !belowMinimum && validation.ok,
+      onChangeVampires: (delta) => updateConfig({ vampires: config.vampires + delta }),
+      onToggleRole: (key, checked) => updateConfig({ [key]: checked }),
+      onRestoreDefaults: () => {
+        state.roleConfig = null;
         renderState({ keepScroll: true });
       },
+      onRoleInfo: showRoleInfo,
       onGmChange: (value) => {
         state.gmName = value === '' ? null : value;
         renderState();
@@ -420,7 +471,20 @@ function renderSetup() {
   );
 }
 
-/** Rozdaje role i przechodzi do wspólnego sprawdzania ról. */
+/** Przycisk „i”: pełny opis roli w okienku z jednym przyciskiem „Zamknij”. */
+function showRoleInfo(role) {
+  openDialog({
+    title: `${role.icon} ${role.name}`,
+    message: role.revealText,
+    confirmLabel: t('games.sect.dialog.close'),
+    onConfirm: () => {
+      state.container.querySelector('.sec-overlay')?.remove();
+    },
+    infoOnly: true,
+  });
+}
+
+/** Rozdaje role i przechodzi do wspólnego sprawdzania ról (tylko przy poprawnej konfiguracji). */
 function dealRoles() {
   const playingNames = getPlayingNames();
 
@@ -428,10 +492,18 @@ function dealRoles() {
     return;
   }
 
+  const { config } = getEffectiveRoleConfig(playingNames.length);
+
+  if (!validateRoleConfig(playingNames.length, config).ok) {
+    return;
+  }
+
+  // Zapamiętujemy wybór na kolejne partie („Nowe role”).
+  state.roleConfig = config;
   state.gameState = createGameState({
     gmName: state.gmName,
     playerNames: playingNames,
-    roleOptions: getEffectiveRoleOptions(playingNames.length),
+    roleConfig: config,
   });
   state.revealPlayerId = null;
   state.phase = 'check';
@@ -672,9 +744,19 @@ function startNight() {
       nightNumber === 1 && Boolean(healer?.alive) && Boolean(apprentice?.alive),
     apprenticeActingName:
       healerActor && healerActor.roleId === ROLES.apprentice.id ? healerActor.name : null,
+    // Role wyłączone na ekranie „Role w tej grze” nie mają kroków w nocy.
+    doctorInGame: Boolean(healer),
+    detectiveInGame: Boolean(detective),
+    // Pierwsza noc: sługa poznaje wampiry (tylko jeśli sługa gra).
+    servantMeets:
+      nightNumber === 1 && Boolean(getPlayerByRole(state.gameState, ROLES.servant.id)),
+    // Wiedźma: krok po znachorze; atrapa, gdy nie żyje albo nie ma już mikstur.
+    witchInGame: Boolean(getPlayerByRole(state.gameState, ROLES.witch.id)),
+    witchActive: isWitchActive(state.gameState),
   });
   state.nightStep = 0;
   state.nightHistory = [];
+  state.witchDraft = null;
   state.selection = null;
   state.nightConfirmed = false;
   state.previewOpen = false;
@@ -718,6 +800,11 @@ function renderNight() {
     return;
   }
 
+  if (step.pick === 'witch') {
+    renderWitchStep(common, step);
+    return;
+  }
+
   if (step.pick === 'detective' && state.nightConfirmed) {
     state.container.append(
       renderDetectiveResultScreen({
@@ -747,6 +834,115 @@ function renderNight() {
       onConfirm: () => confirmNightPick(step.pick),
     }),
   );
+}
+
+/** Szkic wyboru wiedźmy w bieżącym kroku (przed „Zatwierdź”). */
+function getWitchDraft() {
+  if (!state.witchDraft) {
+    state.witchDraft = { heal: false, poisonTargetId: null, poisonPicking: false };
+  }
+  return state.witchDraft;
+}
+
+/**
+ * Krok wiedźmy: mistrz gry widzi imię ofiary wampirów (wskazuje ją wiedźmie gestem),
+ * potem zaznacza wybór wiedźmy: „Ulecz ofiarę”, „Otruj osobę” (wybór żywej osoby,
+ * nie wiedźmy), obie albo „Nic” — i zatwierdza.
+ */
+function renderWitchStep(common, step) {
+  const draft = getWitchDraft();
+  const choices = state.gameState.nightChoices;
+  const available = getWitchPotionsAvailable(state.gameState);
+
+  state.container.append(
+    renderWitchScreen({
+      ...common,
+      doText: step.doText,
+      victimName: choices.sectTargetId ? nameOf(choices.sectTargetId) : null,
+      victimProtected: Boolean(choices.sectTargetId) && choices.sectTargetId === choices.doctorTargetId,
+      healAvailable: available.heal,
+      poisonAvailable: available.poison,
+      draft,
+      poisonCandidates: getWitchPoisonTargets(state.gameState).map((player) => ({
+        id: player.id,
+        name: player.name,
+      })),
+      onToggleHeal: toggleWitchHeal,
+      onTogglePoison: () => {
+        draft.poisonPicking = !draft.poisonPicking;
+        if (!draft.poisonPicking) {
+          draft.poisonTargetId = null;
+        }
+        renderState({ keepScroll: true });
+      },
+      onSelectPoison: (playerId) => {
+        draft.poisonTargetId = playerId;
+        renderState({ keepScroll: true });
+      },
+      onNothing: () => {
+        state.witchDraft = { heal: false, poisonTargetId: null, poisonPicking: false };
+        confirmWitchChoice();
+      },
+      onConfirm: confirmWitchChoice,
+    }),
+  );
+}
+
+/**
+ * „Ulecz ofiarę”: przełącza uleczenie. Gdy ofiarę i tak chroni znachor, najpierw
+ * potwierdzenie, że mikstura zostanie zużyta bez skutku.
+ */
+function toggleWitchHeal() {
+  const draft = getWitchDraft();
+  const choices = state.gameState.nightChoices;
+
+  if (draft.heal) {
+    draft.heal = false;
+    renderState({ keepScroll: true });
+    return;
+  }
+
+  if (choices.sectTargetId && choices.sectTargetId === choices.doctorTargetId) {
+    openDialog({
+      title: t('games.sect.dialog.witchWasteTitle'),
+      message: t('games.sect.dialog.witchWasteMessage'),
+      confirmLabel: t('games.sect.dialog.witchWasteConfirm'),
+      onConfirm: () => {
+        getWitchDraft().heal = true;
+        renderState({ keepScroll: true });
+      },
+    });
+    return;
+  }
+
+  draft.heal = true;
+  renderState({ keepScroll: true });
+}
+
+/** Zatwierdza wybór wiedźmy (z migawką do „Cofnij krok”) i przechodzi do „Wiedźma zamyka oczy”. */
+function confirmWitchChoice() {
+  const draft = getWitchDraft();
+
+  // Otrucie wybrane, ale bez wskazanej osoby — czekamy na wybór.
+  if (draft.poisonPicking && !draft.poisonTargetId) {
+    return;
+  }
+
+  const result = applyWitchChoice(state.gameState, {
+    heal: draft.heal,
+    poisonTargetId: draft.poisonPicking ? draft.poisonTargetId : null,
+  });
+
+  if (!result.ok) {
+    // Wybór się zdezaktualizował (np. korekta na Tablicy) — zaczynamy od nowa.
+    state.witchDraft = null;
+    renderState();
+    return;
+  }
+
+  state.nightHistory.push({ stepIndex: state.nightStep, nightChoices: { ...state.gameState.nightChoices } });
+  state.gameState = result.state;
+  advanceNightStep();
 }
 
 /** Lista osób do wyboru w danym kroku nocy (z blokadami i notatkami). */
@@ -821,6 +1017,8 @@ function confirmNightPick(kind) {
       ...choices,
       detectiveTargetId: targetId,
       detectiveResult: getDetectiveResultFor(state.gameState, targetId),
+      // Hrabia: łowca widzi „nie wampir”, mistrz gry — prawdę w dzienniku i na Tablicy.
+      detectiveFaked: isDetectionFaked(state.gameState, targetId),
     },
   };
   state.nightConfirmed = true;
@@ -833,6 +1031,7 @@ function advanceNightStep() {
   state.nightStep += 1;
   state.selection = null;
   state.nightConfirmed = false;
+  state.witchDraft = null;
 
   if (state.nightStep >= state.nightSteps.length) {
     startMorning();
@@ -847,17 +1046,17 @@ function startMorning() {
   const resolved = resolveNight(state.gameState);
   const winner = checkWin(resolved);
   const entry = resolved.nightLog[resolved.nightLog.length - 1];
-  const victim =
-    entry && entry.victimId
-      ? resolved.players.find((player) => player.id === entry.victimId)
-      : null;
+  // W jednej nocy mogą zginąć dwie osoby (ofiara wampirów i osoba otruta).
+  const victims = (entry?.victimIds ?? [])
+    .map((id) => resolved.players.find((player) => player.id === id))
+    .filter(Boolean)
+    .map((player) => ({ name: player.name, roleName: getRoleRevealName(player.roleId) }));
 
   state.gameState = { ...resolved, winner };
   state.morningInfo = {
     nightNumber: entry ? entry.night : resolved.nightNumber,
-    victimName: victim ? victim.name : null,
-    victimRoleName: victim ? ROLES[victim.roleId].name : null,
-    saved: entry ? entry.saved : false,
+    victims,
+    savedBy: entry ? entry.savedBy : null,
   };
   state.selection = null;
   state.nightConfirmed = false;
@@ -868,11 +1067,7 @@ function startMorning() {
 
 function renderMorning() {
   const info = state.morningInfo;
-  const texts = getMorningTexts({
-    victimName: info.victimName,
-    victimRoleName: info.victimRoleName,
-    saved: info.saved,
-  });
+  const texts = getMorningTexts({ victims: info.victims, savedBy: info.savedBy });
 
   state.container.append(
     renderMorningScreen({
@@ -1023,7 +1218,7 @@ function confirmCommanderTakeover() {
   state.gameState = { ...result.state, winner: checkWin(result.state) };
   state.dayResult = {
     removedName: target.name,
-    removedRoleName: ROLES[target.roleId].name,
+    removedRoleName: getRoleRevealName(target.roleId),
   };
   state.selection = null;
   state.phase = 'day-result';
@@ -1061,7 +1256,7 @@ function confirmDayVote() {
   state.gameState = { ...removed, winner: checkWin(removed) };
   state.dayResult = {
     removedName: player ? player.name : null,
-    removedRoleName: player ? ROLES[player.roleId].name : null,
+    removedRoleName: player ? getRoleRevealName(player.roleId) : null,
   };
   state.selection = null;
   state.phase = 'day-result';
@@ -1103,7 +1298,8 @@ function renderFinished() {
 
   state.container.append(
     renderFinishedScreen({
-      winnerText: { text: isSect ? FINISH_TEXTS.sect : FINISH_TEXTS.villagers, isSect },
+      // „Wampiry i sługa wygrywają”, gdy w grze był sługa.
+      winnerText: { text: getFinishText(getWinnerOutcome(state.gameState)), isSect },
       players: state.gameState.players,
       nightLog: state.gameState.nightLog,
       dayLog: state.gameState.dayLog ?? [],
@@ -1201,10 +1397,12 @@ function undoNightStep() {
     return;
   }
 
+  // Migawka wyborów przywraca też mikstury wiedźmy (zużywane dopiero przy rozstrzygnięciu).
   state.gameState = { ...state.gameState, nightChoices: snapshot.nightChoices };
   state.nightStep = snapshot.stepIndex;
   state.selection = null;
   state.nightConfirmed = false;
+  state.witchDraft = null;
   renderState();
 }
 

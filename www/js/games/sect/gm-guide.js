@@ -19,6 +19,14 @@ const GUIDE_DATA = Object.freeze([
     ],
   },
   {
+    title: 'games.sect.guide.setup.title',
+    points: [
+      'games.sect.guide.setup.point1',
+      'games.sect.guide.setup.point2',
+      'games.sect.guide.setup.point3',
+    ],
+  },
+  {
     title: 'games.sect.guide.before.title',
     points: [
       'games.sect.guide.before.point1',
@@ -52,6 +60,30 @@ const GUIDE_DATA = Object.freeze([
       'games.sect.guide.day.point2',
       'games.sect.guide.day.point3',
       'games.sect.guide.day.point4',
+    ],
+  },
+  {
+    title: 'games.sect.guide.count.title',
+    points: [
+      'games.sect.guide.count.point1',
+      'games.sect.guide.count.point2',
+    ],
+  },
+  {
+    title: 'games.sect.guide.servant.title',
+    points: [
+      'games.sect.guide.servant.point1',
+      'games.sect.guide.servant.point2',
+      'games.sect.guide.servant.point3',
+    ],
+  },
+  {
+    title: 'games.sect.guide.witch.title',
+    points: [
+      'games.sect.guide.witch.point1',
+      'games.sect.guide.witch.point2',
+      'games.sect.guide.witch.point3',
+      'games.sect.guide.witch.point4',
     ],
   },
   {
@@ -92,6 +124,9 @@ const GUIDE_DATA = Object.freeze([
       'games.sect.guide.legend.point4',
       'games.sect.guide.legend.point5',
       'games.sect.guide.legend.point6',
+      'games.sect.guide.legend.point7',
+      'games.sect.guide.legend.point8',
+      'games.sect.guide.legend.point9',
     ],
   },
 ]);

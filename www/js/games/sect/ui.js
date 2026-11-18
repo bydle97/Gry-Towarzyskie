@@ -8,13 +8,8 @@
  * bo w projekcie nie ma wspólnego components/hold-to-reveal.js.
  */
 import { clear, el } from '../../core/dom.js';
-import { formatNumber, t } from '../../core/i18n.js';
-import {
-  APPRENTICE_DEFAULT_MIN_PLAYERS,
-  COMMANDER_DEFAULT_MIN_PLAYERS,
-  MIN_PLAYERS,
-  ROLES,
-} from './config.js';
+import { formatNumber, t, tPlural } from '../../core/i18n.js';
+import { MIN_PLAYERS, ROLES, getRoleRevealName } from './config.js';
 import { GUIDE_SECTIONS } from './gm-guide.js';
 
 const STYLE_ELEMENT_ID = 'sect-styles';
@@ -68,31 +63,110 @@ const STYLES = `
   line-height: 1.45;
 }
 
-/* Przełączniki ról dodatkowych (komendant, uczeń). */
-.sec-toggle {
+/* „Role w tej grze”: lista ról z opisem, przyciskiem „i” i kontrolką. */
+.sec-role-options {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
-.sec-toggle__row {
+.sec-role-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.sec-role-option__text {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sec-role-option__name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.sec-role-option__summary {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.sec-role-option__controls {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 48px;
+  margin-left: auto;
+}
+
+.sec-role-option__note {
+  flex-basis: 100%;
+}
+
+.sec-role-info {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background-color: var(--color-bg-soft);
+  color: var(--color-text);
+  font-weight: 800;
+  font-style: italic;
 }
 
 .sec-toggle__input {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   accent-color: var(--color-accent);
 }
 
-.sec-toggle__label {
-  flex: 1;
-  font-size: 1.05rem;
+.sec-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sec-stepper__button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-strong);
+  color: var(--color-text);
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sec-stepper__button:disabled {
+  opacity: 0.4;
+}
+
+.sec-stepper__value {
+  min-width: 2ch;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sec-villagers {
+  font-weight: 700;
+}
+
+/* Ostrzeżenie składu (nie blokuje gry) — kolor akcentu, tekst zawsze widoczny. */
+.sec-warning {
   font-weight: 600;
+  color: var(--color-accent-strong);
 }
 
 .sec-counter {
@@ -421,6 +495,17 @@ const STYLES = `
   font-size: 1.05rem;
 }
 
+/* Krok wiedźmy: przyciski mikstur. */
+.sec-witch__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sec-witch__button {
+  flex: 1 1 9rem;
+}
+
 /* Tajny wynik (łowca) i szczegóły poranka. */
 .sec-secret-inner {
   display: flex;
@@ -681,42 +766,56 @@ export function renderConfirmDialog({
           text: confirmLabel,
           onClick: onConfirm,
         }),
-        el('button', {
-          class: 'button button--secondary button--block sec-dialog__cancel',
-          type: 'button',
-          text: cancelLabel,
-          onClick: onCancel,
-        }),
+        // Bez onCancel (okno informacyjne) przycisk „Anuluj” nie jest pokazywany.
+        typeof onCancel === 'function'
+          ? el('button', {
+              class: 'button button--secondary button--block sec-dialog__cancel',
+              type: 'button',
+              text: cancelLabel,
+              onClick: onCancel,
+            })
+          : null,
       ],
     ),
   ]);
 }
 
 /**
- * Ekran przygotowania: wybór mistrza gry, podgląd składu i rozdanie ról.
+ * Ekran przygotowania: wybór mistrza gry, sekcja „Role w tej grze” i rozdanie ról.
  * @param {{
  *   players: string[],
  *   gmName: string|null,
  *   playingCount: number,
- *   lineupText: string,
  *   belowMinimum: boolean,
- *   optionalRoles: Array<{key: 'commander'|'apprentice', checked: boolean, disabled: boolean, noRoom: boolean}>,
+ *   roleSetup: {
+ *     vampireRole: Object, vampires: number,
+ *     canDecreaseVampires: boolean, canIncreaseVampires: boolean,
+ *     rows: Array<{key: string, role: Object, checked: boolean, disabled: boolean, disabledReason: string}>,
+ *     villagers: number, errors: string[], warnings: string[], notes: string[],
+ *   },
+ *   canDeal: boolean,
+ *   onChangeVampires: (delta: number) => void,
  *   onToggleRole: (key: string, checked: boolean) => void,
+ *   onRestoreDefaults: () => void,
+ *   onRoleInfo: (role: Object) => void,
  *   onGmChange: (value: string) => void,
  *   onDealRoles: () => void,
  *   onExit: () => void,
  * }} options
- *   optionalRoles — przełączniki ról dodatkowych; noRoom = rola nie zmieści się w składzie
+ *   canDeal — „Rozdaj role” aktywne tylko bez błędów; inaczej pod przyciskiem powód
  * @returns {HTMLElement}
  */
 export function renderSetupScreen({
   players,
   gmName,
   playingCount,
-  lineupText,
   belowMinimum,
-  optionalRoles = [],
+  roleSetup,
+  canDeal,
+  onChangeVampires,
   onToggleRole,
+  onRestoreDefaults,
+  onRoleInfo,
   onGmChange,
   onDealRoles,
   onOpenGuide,
@@ -755,42 +854,30 @@ export function renderSetupScreen({
       }),
     ]),
 
-    el('div', { class: 'panel' }, [
-      el('h3', { class: 'panel__title', text: t('games.sect.setup.optionalTitle') }),
-      ...optionalRoles.map((option) => createRoleToggle(option, onToggleRole)),
-      el('p', {
-        class: 'sec-hint',
-        text: t('games.sect.setup.optionalHint', {
-          commander: formatNumber(COMMANDER_DEFAULT_MIN_PLAYERS),
-          apprentice: formatNumber(APPRENTICE_DEFAULT_MIN_PLAYERS),
-        }),
-      }),
-    ]),
-
-    el('div', { class: 'panel' }, [
-      el('h3', { class: 'panel__title', text: t('games.sect.setup.lineupTitle') }),
-      el('p', {
-        class: 'sec-lineup',
-        text: t('games.sect.setup.players', { count: formatNumber(playingCount) }),
-      }),
-      belowMinimum
-        ? el('p', {
-            class: 'form-error',
-            text: t('games.sect.setup.notEnough', { count: formatNumber(MIN_PLAYERS) }),
-          })
-        : el('p', {
-            class: 'sec-lineup',
-            text: t('games.sect.setup.lineup', { lineup: lineupText }),
-          }),
-    ]),
+    createRolesPanel({
+      playingCount,
+      belowMinimum,
+      roleSetup,
+      onChangeVampires,
+      onToggleRole,
+      onRestoreDefaults,
+      onRoleInfo,
+    }),
 
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
       text: t('games.sect.setup.dealRoles'),
-      disabled: belowMinimum,
+      disabled: !canDeal,
       onClick: onDealRoles,
     }),
+    // Powód nieaktywnego „Rozdaj role” (pierwszy błąd składu).
+    !canDeal && !belowMinimum && roleSetup.errors.length > 0
+      ? el('p', {
+          class: 'form-error',
+          text: t('games.sect.setup.dealBlocked', { reason: roleSetup.errors[0] }),
+        })
+      : null,
 
     el('button', {
       class: 'button button--secondary button--block',
@@ -804,28 +891,136 @@ export function renderSetupScreen({
 }
 
 /**
- * Przełącznik roli dodatkowej (natywny checkbox z etykietą: ikona i nazwa roli).
- * @param {{key: string, checked: boolean, disabled: boolean, noRoom: boolean}} option
- * @param {(key: string, checked: boolean) => void} onToggle
- * @returns {HTMLElement}
+ * Przycisk „i” przy roli — otwiera pełny opis roli.
+ * @param {Object} role
+ * @param {(role: Object) => void} onRoleInfo
  */
-function createRoleToggle({ key, checked, disabled, noRoom }, onToggle) {
-  const role = ROLES[key];
-  const inputId = `sect-role-${key}`;
+function createRoleInfoButton(role, onRoleInfo) {
+  return el('button', {
+    class: 'sec-role-info',
+    type: 'button',
+    text: 'i',
+    'aria-label': t('games.sect.setup.infoAria', { role: role.name }),
+    onClick: () => onRoleInfo(role),
+  });
+}
 
-  return el('div', { class: 'sec-toggle' }, [
-    el('div', { class: 'sec-toggle__row' }, [
-      el('input', {
-        class: 'sec-toggle__input',
-        type: 'checkbox',
-        id: inputId,
-        checked,
-        disabled,
-        onChange: (event) => onToggle(key, event.target.checked),
+/**
+ * Nagłówek wiersza roli: ikona, nazwa i jednozdaniowe podsumowanie.
+ * Rola może mieć osobną nazwę na tej liście (setupName, np. „Hrabia (jeden z wampirów)”).
+ */
+function createRoleText(role, labelFor = null) {
+  const label = `${role.icon} ${role.setupName ?? role.name}`;
+
+  return el('div', { class: 'sec-role-option__text' }, [
+    labelFor
+      ? el('label', { class: 'sec-role-option__name', for: labelFor, text: label })
+      : el('span', { class: 'sec-role-option__name', text: label }),
+    el('span', { class: 'sec-role-option__summary', text: role.summary }),
+  ]);
+}
+
+/**
+ * Sekcja „Role w tej grze”: wampiry ze stepperem (min 1), pozostałe role
+ * z przełącznikami, liczba mieszkańców, błędy/ostrzeżenia na bieżąco,
+ * „Przywróć domyślne”.
+ */
+function createRolesPanel({
+  playingCount,
+  belowMinimum,
+  roleSetup,
+  onChangeVampires,
+  onToggleRole,
+  onRestoreDefaults,
+  onRoleInfo,
+}) {
+  const header = [
+    el('h3', { class: 'panel__title', text: t('games.sect.setup.rolesTitle') }),
+    el('p', {
+      class: 'sec-lineup',
+      text: tPlural('games.sect.setup.playing', playingCount),
+    }),
+  ];
+
+  if (belowMinimum) {
+    return el('div', { class: 'panel' }, [
+      ...header,
+      el('p', {
+        class: 'form-error',
+        text: t('games.sect.setup.notEnough', { count: formatNumber(MIN_PLAYERS) }),
       }),
-      el('label', { class: 'sec-toggle__label', for: inputId, text: `${role.icon} ${role.name}` }),
+    ]);
+  }
+
+  const vampireRow = el('li', { class: 'sec-role-option' }, [
+    createRoleText(roleSetup.vampireRole),
+    el('div', { class: 'sec-role-option__controls' }, [
+      createRoleInfoButton(roleSetup.vampireRole, onRoleInfo),
+      el('div', { class: 'sec-stepper' }, [
+        el('button', {
+          class: 'sec-stepper__button',
+          type: 'button',
+          text: '−',
+          'aria-label': t('games.sect.setup.vampiresLess'),
+          disabled: !roleSetup.canDecreaseVampires,
+          onClick: () => onChangeVampires(-1),
+        }),
+        el('span', {
+          class: 'sec-stepper__value',
+          'aria-live': 'polite',
+          text: formatNumber(roleSetup.vampires),
+        }),
+        el('button', {
+          class: 'sec-stepper__button',
+          type: 'button',
+          text: '+',
+          'aria-label': t('games.sect.setup.vampiresMore'),
+          disabled: !roleSetup.canIncreaseVampires,
+          onClick: () => onChangeVampires(1),
+        }),
+      ]),
     ]),
-    noRoom ? el('p', { class: 'sec-hint', text: t('games.sect.setup.roleNoRoom') }) : null,
+  ]);
+
+  const toggleRows = roleSetup.rows.map(({ key, role, checked, disabled, disabledReason }) => {
+    const inputId = `sect-role-${key}`;
+
+    return el('li', { class: 'sec-role-option' }, [
+      createRoleText(role, inputId),
+      el('div', { class: 'sec-role-option__controls' }, [
+        createRoleInfoButton(role, onRoleInfo),
+        el('input', {
+          class: 'sec-toggle__input',
+          type: 'checkbox',
+          id: inputId,
+          checked,
+          disabled,
+          onChange: (event) => onToggleRole(key, event.target.checked),
+        }),
+      ]),
+      disabledReason ? el('p', { class: 'sec-hint sec-role-option__note', text: disabledReason }) : null,
+    ]);
+  });
+
+  return el('div', { class: 'panel' }, [
+    ...header,
+    el('ul', { class: 'sec-role-options' }, [vampireRow, ...toggleRows]),
+    el('p', {
+      class: 'sec-lineup sec-villagers',
+      text: t('games.sect.setup.villagers', {
+        icon: ROLES.villager.icon,
+        count: formatNumber(roleSetup.villagers),
+      }),
+    }),
+    ...roleSetup.errors.map((text) => el('p', { class: 'form-error', role: 'alert', text })),
+    ...roleSetup.warnings.map((text) => el('p', { class: 'sec-warning', text })),
+    ...roleSetup.notes.map((text) => el('p', { class: 'sec-hint', text })),
+    el('button', {
+      class: 'button button--secondary button--block',
+      type: 'button',
+      text: t('games.sect.setup.restoreDefaults'),
+      onClick: onRestoreDefaults,
+    }),
   ]);
 }
 
@@ -1324,6 +1519,117 @@ export function renderDetectiveResultScreen({
   });
 }
 
+/**
+ * Krok wiedźmy. Mistrz gry widzi imię ofiary wampirów (wskazuje ją gestem),
+ * a potem zaznacza wybór wiedźmy: „Ulecz ofiarę”, „Otruj osobę” (lista żywych,
+ * bez wiedźmy), obie albo „Nic”. Zużyte mikstury mają nieaktywne przyciski.
+ * @param {{
+ *   victimName: string|null, victimProtected: boolean,
+ *   healAvailable: boolean, poisonAvailable: boolean,
+ *   draft: {heal: boolean, poisonTargetId: string|null, poisonPicking: boolean},
+ *   poisonCandidates: Array<{id: string, name: string}>,
+ *   onToggleHeal: () => void, onTogglePoison: () => void,
+ *   onSelectPoison: (id: string) => void, onNothing: () => void, onConfirm: () => void,
+ * }} options (plus wspólne pola ekranu mistrza gry)
+ * @returns {HTMLElement}
+ */
+export function renderWitchScreen({
+  label,
+  sayText,
+  doText,
+  victimName,
+  victimProtected,
+  healAvailable,
+  poisonAvailable,
+  draft,
+  poisonCandidates,
+  onToggleHeal,
+  onTogglePoison,
+  onSelectPoison,
+  onNothing,
+  onConfirm,
+  onOpenPreview,
+  onOpenBoard,
+  onOpenGuide,
+  onAbort,
+  onUndo,
+}) {
+  const victimText = victimName
+    ? t('games.sect.gm.witchVictim', { name: victimName })
+    : t('games.sect.script.morning.noTargetDetail');
+
+  const potionButton = ({ text, available, pressed, onClick }) =>
+    el('button', {
+      class: pressed ? 'button button--primary sec-witch__button' : 'button button--secondary sec-witch__button',
+      type: 'button',
+      text: available ? text : `${text} ${t('games.sect.gm.potionUsed')}`,
+      disabled: !available,
+      'aria-pressed': pressed ? 'true' : 'false',
+      onClick,
+    });
+
+  const summaryParts = [];
+
+  if (draft.heal) {
+    summaryParts.push(t('games.sect.gm.witchChoiceHeal'));
+  }
+  if (draft.poisonPicking && draft.poisonTargetId) {
+    const target = poisonCandidates.find((item) => item.id === draft.poisonTargetId);
+    summaryParts.push(t('games.sect.gm.witchChoicePoison', { name: target ? target.name : '—' }));
+  }
+
+  return createGmScreenFrame({
+    label,
+    sayText,
+    doChildren: [
+      el('p', { class: 'sec-do', text: doText }),
+      el('p', { class: 'sec-result', text: victimText }),
+      victimProtected ? el('p', { class: 'sec-hint', text: t('games.sect.gm.witchVictimProtected') }) : null,
+      el('div', { class: 'sec-witch__actions' }, [
+        potionButton({
+          text: t('games.sect.gm.witchHeal'),
+          available: healAvailable && Boolean(victimName),
+          pressed: draft.heal,
+          onClick: onToggleHeal,
+        }),
+        potionButton({
+          text: t('games.sect.gm.witchPoison'),
+          available: poisonAvailable,
+          pressed: draft.poisonPicking,
+          onClick: onTogglePoison,
+        }),
+        el('button', {
+          class: 'button button--secondary sec-witch__button',
+          type: 'button',
+          text: t('games.sect.gm.witchNothing'),
+          onClick: onNothing,
+        }),
+      ]),
+      draft.poisonPicking
+        ? el('div', { class: 'stack' }, [
+            el('p', { class: 'sec-do', text: t('games.sect.gm.witchPickPoison') }),
+            createPickList(poisonCandidates, draft.poisonTargetId, onSelectPoison),
+          ])
+        : null,
+      el('p', {
+        class: 'sec-hint',
+        text: t('games.sect.gm.witchSummary', {
+          choice: summaryParts.length > 0 ? summaryParts.join(', ') : t('games.sect.gm.witchChoiceNothing'),
+        }),
+      }),
+    ],
+    actionLabel: t('games.sect.gm.confirm'),
+    // Otrucie wybrane, ale bez wskazanej osoby — nie można zatwierdzić.
+    actionDisabled: draft.poisonPicking && !draft.poisonTargetId,
+    onAction: onConfirm,
+    onOpenPreview,
+    onOpenBoard,
+    onOpenGuide,
+    onAbort,
+    onUndo,
+  });
+}
+
 /** Poranek: ogłoszenie wyniku nocy i szczegóły tylko dla mistrza gry. */
 export function renderMorningScreen({
   label,
@@ -1638,9 +1944,18 @@ function describeNightEntry(entry, players) {
   if (entry.doctorTargetId) {
     parts.push(t('games.sect.log.doctor', { name: nameOf(entry.doctorTargetId) }));
   }
+  // Wiedźma: zużyte mikstury tej nocy (uleczenie dotyczy ofiary wampirów).
+  if (entry.witchHeal) {
+    parts.push(t('games.sect.log.witchHeal', { name: nameOf(entry.sectTargetId) }));
+  }
+  if (entry.witchPoisonTargetId) {
+    parts.push(t('games.sect.log.witchPoison', { name: nameOf(entry.witchPoisonTargetId) }));
+  }
   if (entry.detectiveTargetId) {
-    const result =
-      entry.detectiveResult === 'sect'
+    // Hrabia: łowca usłyszał „nie wampir” — mistrz gry widzi w dzienniku prawdę.
+    const result = entry.detectiveFaked
+      ? t('games.sect.log.detectiveFaked')
+      : entry.detectiveResult === 'sect'
         ? t('games.sect.log.detectiveSect')
         : t('games.sect.log.detectiveNotSect');
     parts.push(
@@ -1654,11 +1969,17 @@ function describeNightEntry(entry, players) {
     parts.push(t('games.sect.log.noChoices'));
   }
 
-  const effect = entry.victimId
-    ? t('games.sect.log.victim', { name: nameOf(entry.victimId) })
-    : entry.saved
-      ? t('games.sect.log.saved')
-      : t('games.sect.log.noVictim');
+  // Nocą mogą zginąć dwie osoby (ofiara wampirów i osoba otruta).
+  const victimIds = entry.victimIds ?? (entry.victimId ? [entry.victimId] : []);
+  let effect = t('games.sect.log.noVictim');
+
+  if (victimIds.length > 1) {
+    effect = t('games.sect.log.victims', { names: victimIds.map(nameOf).join(', ') });
+  } else if (victimIds.length === 1) {
+    effect = t('games.sect.log.victim', { name: nameOf(victimIds[0]) });
+  } else if (entry.saved) {
+    effect = t('games.sect.log.saved');
+  }
 
   return t('games.sect.log.entry', {
     night: formatNumber(entry.night),
@@ -1744,7 +2065,8 @@ export function renderFinishedScreen({
             }),
             el('span', {
               class: 'sec-role-tag',
-              text: `${ROLES[player.roleId].icon} ${ROLES[player.roleId].name}`,
+              // Na koniec role są jawne: hrabia jako „Hrabia (wampir)”.
+              text: `${ROLES[player.roleId].icon} ${getRoleRevealName(player.roleId)}`,
             }),
           ]),
         ),
@@ -1827,6 +2149,16 @@ function getNightMarkers(player, nightChoices) {
         ? t('games.sect.markers.detectiveSect')
         : t('games.sect.markers.detectiveNotSect'),
     );
+    // Hrabia: łowca dostał wynik zafałszowany.
+    if (nightChoices.detectiveFaked) {
+      markers.push(t('games.sect.markers.detectiveFaked'));
+    }
+  }
+  if (nightChoices.witchHeal && nightChoices.sectTargetId === player.id) {
+    markers.push(t('games.sect.markers.witchHeal'));
+  }
+  if (nightChoices.witchPoisonTargetId === player.id) {
+    markers.push(t('games.sect.markers.witchPoison'));
   }
 
   return markers;
@@ -1836,7 +2168,27 @@ function getNightMarkers(player, nightChoices) {
  * Tajna część Tablicy: role, oznaczenia nocy, przejęcie mocy znachora przez ucznia,
  * dziennik nocy i dnia oraz korekty.
  */
-function createBoardSecret({ players, nightChoices, nightLog, dayLog = [], corrections, healerInheritance = null }) {
+function createBoardSecret({
+  players,
+  nightChoices,
+  nightLog,
+  dayLog = [],
+  corrections,
+  healerInheritance = null,
+  witchPotions = null,
+}) {
+  // Stan mikstur wiedźmy (tylko gdy wiedźma gra).
+  const potionState = (available) =>
+    available ? t('games.sect.board.potionAvailable') : t('games.sect.board.potionUsed');
+  const potionsNote = witchPotions
+    ? el('p', {
+        class: 'sec-marker',
+        text: t('games.sect.board.potions', {
+          heal: potionState(witchPotions.heal),
+          poison: potionState(witchPotions.poison),
+        }),
+      })
+    : null;
   const apprentice = healerInheritance
     ? players.find((player) => player.id === healerInheritance.apprenticeId)
     : null;
@@ -1881,6 +2233,7 @@ function createBoardSecret({ players, nightChoices, nightLog, dayLog = [], corre
     el('p', { class: 'sec-block__label', text: t('games.sect.board.secretLabel') }),
     el('ul', { class: 'sec-board__secret-list' }, rows),
     inheritanceNote,
+    potionsNote,
 
     el('p', { class: 'sec-block__label', text: t('games.sect.finished.logTitle') }),
     nightLog.length === 0
@@ -1918,6 +2271,7 @@ export function renderBoardOverlay({
   corrections,
   revealedCommanderId = null,
   healerInheritance = null,
+  witchPotions = null,
   winnerText,
   onClose,
   onCorrect,
@@ -1928,7 +2282,15 @@ export function renderBoardOverlay({
   const secret = createHoldReveal({
     label: t('games.sect.board.hold'),
     renderContent: () =>
-      createBoardSecret({ players, nightChoices, nightLog, dayLog, corrections, healerInheritance }),
+      createBoardSecret({
+        players,
+        nightChoices,
+        nightLog,
+        dayLog,
+        corrections,
+        healerInheritance,
+        witchPotions,
+      }),
   });
 
   return el(

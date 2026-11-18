@@ -25,7 +25,7 @@
     const names = roles.map((_, index) => `Gracz ${index + 1}`);
     const fresh = engine.createGameState({
       playerNames: names,
-      roleOptions: { commander: true, apprentice: true },
+      roleConfig: { vampires: 2, znachor: true, uczen: true, lowca: true, komendant: true },
     });
     return { ...fresh, players: fresh.players.map((player, index) => ({ ...player, roleId: roles[index] })) };
   }
@@ -104,17 +104,22 @@
 
   // (e) skład ról dla 5, 7, 8, 12 i 20 graczy (domyślne role dodatkowe)
   {
+    // Od 10 graczy domyślnie grają hrabia (jeden z wampirów) i sługa, od 12 — wiedźma.
     const expected = {
-      5: { sect: 1, doctor: 1, apprentice: 0, detective: 1, commander: 0, villager: 2 },
-      7: { sect: 1, doctor: 1, apprentice: 0, detective: 1, commander: 1, villager: 3 },
-      8: { sect: 2, doctor: 1, apprentice: 1, detective: 1, commander: 1, villager: 2 },
-      12: { sect: 3, doctor: 1, apprentice: 1, detective: 1, commander: 1, villager: 5 },
-      20: { sect: 4, doctor: 1, apprentice: 1, detective: 1, commander: 1, villager: 12 },
+      5: { sect: 1, count: 0, servant: 0, doctor: 1, apprentice: 0, witch: 0, detective: 1, commander: 0, villager: 2 },
+      7: { sect: 1, count: 0, servant: 0, doctor: 1, apprentice: 0, witch: 0, detective: 1, commander: 1, villager: 3 },
+      8: { sect: 2, count: 0, servant: 0, doctor: 1, apprentice: 1, witch: 0, detective: 1, commander: 1, villager: 2 },
+      12: { sect: 2, count: 1, servant: 1, doctor: 1, apprentice: 1, witch: 1, detective: 1, commander: 1, villager: 3 },
+      20: { sect: 3, count: 1, servant: 1, doctor: 1, apprentice: 1, witch: 1, detective: 1, commander: 1, villager: 10 },
     };
     for (const [n, want] of Object.entries(expected)) {
       const count = Number(n);
-      const lineup = config.getLineup(count);
-      const list = engine.buildRoleList(count);
+      // Skład z domyślnej konfiguracji ról (config.defaultRoleConfig).
+      const list = engine.buildRoleList(count, config.defaultRoleConfig(count));
+      const lineup = Object.fromEntries(Object.keys(want).map((roleId) => [
+        roleId,
+        list.filter((item) => item === roleId).length,
+      ]));
       const same = Object.keys(want).every((key) => lineup[key] === want[key]);
       check(`(e) skład dla ${count} graczy`, same && list.length === count,
         Object.entries(lineup).map(([key, value]) => `${key}:${value}`).join(' '));
