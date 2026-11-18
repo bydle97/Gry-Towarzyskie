@@ -8,7 +8,7 @@ Dziennik pracy autonomicznej na gałęzi `noc`. Zadania: docs/ZADANIA-NOC.md.
 |---|---|---|
 | 0. Ocena stanu | zrobione | |
 | 1. Poprawki z przeglądu | zrobione | większość była już w kodzie; dorobione D-6, P-1 |
-| 2. APK (Capacitor) | do zrobienia | |
+| 2. APK (Capacitor) | zrobione | apk-1 zbudowany w Actions (success) |
 | 3. Wampir | do sprawdzenia | logika i UI były już w kodzie |
 | 4. Wygląd | do zrobienia | |
 | 5. Wykończenie Androida | do zrobienia | |
@@ -81,3 +81,23 @@ Decyzja: list zmienionych pytań (W-1) nie odtwarzam, bo dane były poprawione w
   - Ekran główny i szczegóły każdej gry przy 360x800 i 320x568: focus na tytule, `scrollY = 0`, układ bez obcięć.
   - Pełna partia „Na oko” (3 graczy, 8 pytań): typy „1 000” i „5 000” (twarda spacja) przyjęte jako liczby, na 8. pytaniu przycisk „Pokaż wynik”, ekran końcowy z tabelą.
   - Gest „wstecz” (`history.back()`) w trakcie gry: okno „Zakończyć grę?”; „Zostań w grze” zostawia grę, kolejne „wstecz” znów pyta.
+
+## 2026-11-19 01:35 — Faza 2: pakowanie do APK (Capacitor)
+
+- `package.json` (private, 0.1.0) z devDependencies w dokładnych wersjach jednego wydania głównego (Capacitor 8): `@capacitor/core`, `cli`, `android` 8.6.2, `@capacitor/app` 8.1.2, `@capacitor/haptics` 8.0.2, `@capacitor/assets` 4.0.0. Wymagania sprawdzone w paczkach: Node >= 22 (`engines` w `@capacitor/cli`), JDK 21 (`JavaVersion.VERSION_21` w wygenerowanym `capacitor.build.gradle`). Gradle 8.14.3, AGP 8.13.0, compile/targetSdk 36, minSdk 24.
+- `capacitor.config.json`: appId `pl.grytowarzyskie.app` (tymczasowe), appName „Gry Towarzyskie”, webDir `www`, tło `#0d1120`.
+- `npx cap add android` (projekt `android/` w repozytorium; `assets/public` i wtyczki cordova są ignorowane przez `android/.gitignore` i odtwarzane przez `npx cap sync`).
+- `.gitignore` uzupełniony (android/build/, android/local.properties, *.apk, *.aab); nadal wyklucza *.jks, *.keystore, .env. Nowy `.gitattributes`: `android/gradlew` zawsze z LF (repo jest edytowane na Windows). `gradlew` ma w gicie bit wykonywania (100755).
+- `android/app/build.gradle`: `versionCode` z `GITHUB_RUN_NUMBER` (lokalnie 1), `versionName "0.1.0"`.
+- Uprawnienie INTERNET zostawione (decyzja z zadania); test do zrobienia na telefonie opisany w docs/APK.md.
+- Workflow `.github/workflows/android-apk.yml`: workflow_dispatch i tagi `apk-*`, `contents: read`. Wersje akcji sprawdzone w API GitHuba (najnowsze wydania): checkout v7.0.1, setup-node v7.1.0, setup-java v6.3.0, upload-artifact v7.0.2. Node 24, Temurin 21, `npm ci`, `npx cap sync android`, sprawdzenie skopiowanych plików, `./gradlew assembleDebug`, `unzip -l` z wymaganym `assets/public/index.html`, artefakt `gry-towarzyskie-<tag>-debug` (30 dni). Workflow Pages bez zmian.
+- Lokalny build: niemożliwy (brak JDK i Android SDK), nic nie instalowałem.
+
+### Wynik
+- Tag `apk-1` wypchnięty razem z gałęzią `noc`. Uruchomienie #1 „Android APK (debug)”: **success** za pierwszym razem, wszystkie kroki zielone.
+  https://github.com/bydle97/Gry-Towarzyskie/actions/runs/44421271265
+- Artefakt: `gry-towarzyskie-apk-1-debug`, 3,9 MB, wygasa 2026-12-18.
+- `gh` nie jest zainstalowane, więc artefaktu nie pobrałem do dist/ (pobranie artefaktu wymaga zalogowania). Jak pobrać: docs/APK.md, sekcja „Jak pobrać APK z GitHub Actions”.
+- Zawartość APK: krok workflow z `unzip -l ... | grep -q assets/public/index.html` przeszedł; logi kroków wymagają zalogowania, więc pełnej listy nie przeczytałem.
+- docs/APK.md: pobieranie, instalacja, wersje, release/AAB (klucz nigdy w repo), ostrzeżenie o appId, lista do sprawdzenia na telefonie.
+- Dodatkowo `tools/test-vampire.mjs` (zbiorczy test Wampira, faza 3) — wynik OK.
