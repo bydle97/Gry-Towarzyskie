@@ -9,7 +9,12 @@
  */
 import { clear, el } from '../../core/dom.js';
 import { formatNumber, t } from '../../core/i18n.js';
-import { MIN_PLAYERS, ROLES } from './config.js';
+import {
+  APPRENTICE_DEFAULT_MIN_PLAYERS,
+  COMMANDER_DEFAULT_MIN_PLAYERS,
+  MIN_PLAYERS,
+  ROLES,
+} from './config.js';
 import { GUIDE_SECTIONS } from './gm-guide.js';
 
 const STYLE_ELEMENT_ID = 'sect-styles';
@@ -61,6 +66,33 @@ const STYLES = `
 .sec-lineup {
   font-size: 1rem;
   line-height: 1.45;
+}
+
+/* Przełączniki ról dodatkowych (komendant, uczeń). */
+.sec-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sec-toggle__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+}
+
+.sec-toggle__input {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  accent-color: var(--color-accent);
+}
+
+.sec-toggle__label {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 .sec-counter {
@@ -668,10 +700,13 @@ export function renderConfirmDialog({
  *   playingCount: number,
  *   lineupText: string,
  *   belowMinimum: boolean,
+ *   optionalRoles: Array<{key: 'commander'|'apprentice', checked: boolean, disabled: boolean, noRoom: boolean}>,
+ *   onToggleRole: (key: string, checked: boolean) => void,
  *   onGmChange: (value: string) => void,
  *   onDealRoles: () => void,
  *   onExit: () => void,
  * }} options
+ *   optionalRoles — przełączniki ról dodatkowych; noRoom = rola nie zmieści się w składzie
  * @returns {HTMLElement}
  */
 export function renderSetupScreen({
@@ -680,6 +715,8 @@ export function renderSetupScreen({
   playingCount,
   lineupText,
   belowMinimum,
+  optionalRoles = [],
+  onToggleRole,
   onGmChange,
   onDealRoles,
   onOpenGuide,
@@ -719,6 +756,18 @@ export function renderSetupScreen({
     ]),
 
     el('div', { class: 'panel' }, [
+      el('h3', { class: 'panel__title', text: t('games.sect.setup.optionalTitle') }),
+      ...optionalRoles.map((option) => createRoleToggle(option, onToggleRole)),
+      el('p', {
+        class: 'sec-hint',
+        text: t('games.sect.setup.optionalHint', {
+          commander: formatNumber(COMMANDER_DEFAULT_MIN_PLAYERS),
+          apprentice: formatNumber(APPRENTICE_DEFAULT_MIN_PLAYERS),
+        }),
+      }),
+    ]),
+
+    el('div', { class: 'panel' }, [
       el('h3', { class: 'panel__title', text: t('games.sect.setup.lineupTitle') }),
       el('p', {
         class: 'sec-lineup',
@@ -751,6 +800,32 @@ export function renderSetupScreen({
     }),
 
     createExitFooter(onExit),
+  ]);
+}
+
+/**
+ * Przełącznik roli dodatkowej (natywny checkbox z etykietą: ikona i nazwa roli).
+ * @param {{key: string, checked: boolean, disabled: boolean, noRoom: boolean}} option
+ * @param {(key: string, checked: boolean) => void} onToggle
+ * @returns {HTMLElement}
+ */
+function createRoleToggle({ key, checked, disabled, noRoom }, onToggle) {
+  const role = ROLES[key];
+  const inputId = `sect-role-${key}`;
+
+  return el('div', { class: 'sec-toggle' }, [
+    el('div', { class: 'sec-toggle__row' }, [
+      el('input', {
+        class: 'sec-toggle__input',
+        type: 'checkbox',
+        id: inputId,
+        checked,
+        disabled,
+        onChange: (event) => onToggle(key, event.target.checked),
+      }),
+      el('label', { class: 'sec-toggle__label', for: inputId, text: `${role.icon} ${role.name}` }),
+    ]),
+    noRoom ? el('p', { class: 'sec-hint', text: t('games.sect.setup.roleNoRoom') }) : null,
   ]);
 }
 
@@ -1471,7 +1546,11 @@ export function renderDayDiscussionScreen({
   return { el: element, destroy: timer.destroy };
 }
 
-/** Dzień: głosowanie — kto odpada (albo "Nikt nie odpada"). */
+/**
+ * Dzień: głosowanie — kto odpada (albo "Nikt nie odpada").
+ * onCommanderTakeover — gdy podane (komendant żyje i nie użył mocy), pod listą
+ * pojawia się przycisk „Komendant przejmuje głosowanie” (dalej z potwierdzeniem).
+ */
 export function renderDayVoteScreen({
   label,
   sayText,
@@ -1480,6 +1559,7 @@ export function renderDayVoteScreen({
   selectedId,
   onSelect,
   onConfirm,
+  onCommanderTakeover = null,
   onOpenPreview,
   onOpenBoard,
   onOpenGuide,
@@ -1491,6 +1571,14 @@ export function renderDayVoteScreen({
     doChildren: [
       el('p', { class: 'sec-do', text: doText }),
       createPickList(candidates, selectedId, onSelect),
+      typeof onCommanderTakeover === 'function'
+        ? el('button', {
+            class: 'button button--secondary button--block sec-commander',
+            type: 'button',
+            text: t('games.sect.gm.commanderButton'),
+            onClick: onCommanderTakeover,
+          })
+        : null,
     ],
     actionLabel: t('games.sect.gm.confirm'),
     actionDisabled: !selectedId,
@@ -1543,6 +1631,10 @@ function describeNightEntry(entry, players) {
   if (entry.sectTargetId) {
     parts.push(t('games.sect.log.sect', { name: nameOf(entry.sectTargetId) }));
   }
+  if (entry.healerActorIsApprentice && entry.healerActorId) {
+    // Od tej nocy moc znachora ma uczeń (znachor nie żyje).
+    parts.push(t('games.sect.log.apprenticeHealer', { name: nameOf(entry.healerActorId) }));
+  }
   if (entry.doctorTargetId) {
     parts.push(t('games.sect.log.doctor', { name: nameOf(entry.doctorTargetId) }));
   }
@@ -1576,6 +1668,35 @@ function describeNightEntry(entry, players) {
 }
 
 /**
+ * Opis wpisu z dziennika dnia (np. przejęcie głosowania przez komendanta).
+ * @param {{type: string, day: number, commanderId: string, targetId: string}} entry
+ * @param {Array<{id: string, name: string}>} players
+ * @returns {string}
+ */
+function describeDayEntry(entry, players) {
+  const nameOf = (playerId) => players.find((item) => item.id === playerId)?.name ?? '—';
+
+  return t('games.sect.log.dayCommander', {
+    day: formatNumber(entry.day),
+    name: nameOf(entry.commanderId),
+    target: nameOf(entry.targetId),
+  });
+}
+
+/** Lista wpisów dziennika dnia (albo null, gdy pusta). */
+function createDayLogList(dayLog, players) {
+  if (!Array.isArray(dayLog) || dayLog.length === 0) {
+    return null;
+  }
+
+  return el(
+    'ul',
+    { class: 'sec-log' },
+    dayLog.map((entry) => el('li', { class: 'sec-log__entry', text: describeDayEntry(entry, players) })),
+  );
+}
+
+/**
  * Ekran końcowy: wynik, role wszystkich graczy oraz dziennik nocy.
  * @param {{
  *   winnerText: {text: string, isSect: boolean},
@@ -1592,9 +1713,12 @@ export function renderFinishedScreen({
   winnerText,
   players,
   nightLog,
+  dayLog = [],
   onNewRoles,
   onExit,
 }) {
+  const dayLogList = createDayLogList(dayLog, players);
+
   return el('div', { class: 'stack' }, [
     createHead(t('games.sect.finished.title'), t('games.sect.finished.subtitle')),
 
@@ -1639,6 +1763,13 @@ export function renderFinishedScreen({
             ),
           ),
     ]),
+
+    dayLogList
+      ? el('div', { class: 'panel' }, [
+          el('h3', { class: 'panel__title', text: t('games.sect.finished.dayLogTitle') }),
+          dayLogList,
+        ])
+      : null,
 
     el('p', {
       class: 'sec-hint',
@@ -1701,8 +1832,24 @@ function getNightMarkers(player, nightChoices) {
   return markers;
 }
 
-/** Tajna część Tablicy: role, oznaczenia nocy, dziennik i korekty. */
-function createBoardSecret({ players, nightChoices, nightLog, corrections }) {
+/**
+ * Tajna część Tablicy: role, oznaczenia nocy, przejęcie mocy znachora przez ucznia,
+ * dziennik nocy i dnia oraz korekty.
+ */
+function createBoardSecret({ players, nightChoices, nightLog, dayLog = [], corrections, healerInheritance = null }) {
+  const apprentice = healerInheritance
+    ? players.find((player) => player.id === healerInheritance.apprenticeId)
+    : null;
+  const inheritanceNote = apprentice
+    ? el('p', {
+        class: 'sec-marker',
+        text: t('games.sect.board.inheritance', {
+          name: apprentice.name,
+          night: formatNumber(healerInheritance.fromNight),
+        }),
+      })
+    : null;
+
   const rows = players.map((player) => {
     const role = ROLES[player.roleId];
     const markers = getNightMarkers(player, nightChoices);
@@ -1733,6 +1880,7 @@ function createBoardSecret({ players, nightChoices, nightLog, corrections }) {
   return el('div', { class: 'sec-secret-inner' }, [
     el('p', { class: 'sec-block__label', text: t('games.sect.board.secretLabel') }),
     el('ul', { class: 'sec-board__secret-list' }, rows),
+    inheritanceNote,
 
     el('p', { class: 'sec-block__label', text: t('games.sect.finished.logTitle') }),
     nightLog.length === 0
@@ -1744,6 +1892,7 @@ function createBoardSecret({ players, nightChoices, nightLog, corrections }) {
             el('li', { class: 'sec-log__entry', text: describeNightEntry(entry, players) }),
           ),
         ),
+    createDayLogList(dayLog, players),
     correctionRows.length === 0 ? null : el('ul', { class: 'sec-log' }, correctionRows),
   ]);
 }
@@ -1765,7 +1914,10 @@ export function renderBoardOverlay({
   players,
   nightChoices,
   nightLog,
+  dayLog = [],
   corrections,
+  revealedCommanderId = null,
+  healerInheritance = null,
   winnerText,
   onClose,
   onCorrect,
@@ -1775,7 +1927,8 @@ export function renderBoardOverlay({
 
   const secret = createHoldReveal({
     label: t('games.sect.board.hold'),
-    renderContent: () => createBoardSecret({ players, nightChoices, nightLog, corrections }),
+    renderContent: () =>
+      createBoardSecret({ players, nightChoices, nightLog, dayLog, corrections, healerInheritance }),
   });
 
   return el(
@@ -1823,6 +1976,10 @@ export function renderBoardOverlay({
           players.map((player) =>
             el('li', { class: 'sec-board__row' }, [
               el('span', { class: 'sec-board__name', text: player.name }),
+              // Komendant po przejęciu głosowania jest jawny — oznaczenie w części publicznej.
+              player.id === revealedCommanderId
+                ? el('span', { class: 'sec-marker', text: t('games.sect.board.commanderRevealed') })
+                : null,
               el('span', {
                 class: player.alive ? 'sec-board__state' : 'sec-board__state sec-board__state--dead',
                 text: describePlayerState(player),

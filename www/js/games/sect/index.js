@@ -18,7 +18,16 @@
 import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, guardTaps } from '../../core/dom.js';
 import { formatNumber, t } from '../../core/i18n.js';
 import { releaseWakeLock, requestWakeLock } from '../../core/wake-lock.js';
-import { DISCUSSION_SECONDS, MIN_PLAYERS, ROLES, formatLineup, getLineup } from './config.js';
+import {
+  DISCUSSION_SECONDS,
+  MIN_PLAYERS,
+  ROLES,
+  canEnableOptionalRole,
+  formatLineup,
+  getDefaultOptionalRoles,
+  getLineup,
+  normalizeOptionalRoles,
+} from './config.js';
 import {
   WINNERS,
   checkWin,
@@ -26,7 +35,12 @@ import {
   createEmptyNightChoices,
   createGameState,
   eliminatePlayer,
+  commanderTakeOver,
+  getCommanderBlocker,
+  getCommanderTargets,
   getDetectiveResultFor,
+  getHealerActor,
+  getPlayerByRole,
   markRoleChecked,
   resolveNight,
   restartGame,
@@ -37,6 +51,7 @@ import {
   DETECTIVE_RESULT_TEXTS,
   FINISH_TEXTS,
   createNightSteps,
+  getCommanderSay,
   getDayResultSay,
   getMorningTexts,
 } from './script.js';
@@ -69,7 +84,7 @@ import {
  *   players: string[],
  *   gmName: string | null,
  *   gameState: Object | null,
- *   phase: 'setup'|'check'|'reveal'|'guide'|'night'|'morning'|'day-discussion'|'day-vote'|'day-result'|'finished',
+ *   phase: 'setup'|'check'|'reveal'|'guide'|'night'|'morning'|'day-discussion'|'day-vote'|'day-commander'|'day-result'|'finished',
  *   revealPlayerId: string | null,
  *   revealReturnPhase: string | null,
  *   previewOpen: boolean,
@@ -111,7 +126,7 @@ const game = {
       'games.sect.steps.5',
       'games.sect.steps.6',
     ],
-    tipKeys: ['games.sect.tips.1'],
+    tipKeys: ['games.sect.tips.1', 'games.sect.tips.2'],
   },
 
   /**
@@ -127,6 +142,9 @@ const game = {
       api,
       players: [...players],
       gmName: null,
+      // Role dodatkowe (komendant, uczeń): null = domyślne wg liczby grających;
+      // po ruszeniu przełącznika mistrz gry decyduje sam (pamięć tylko na czas gry).
+      roleOptions: null,
       gameState: null,
       phase: 'setup',
       revealPlayerId: null,
@@ -221,7 +239,11 @@ function renderState({ keepScroll = false } = {}) {
       players: state.gameState.players,
       nightChoices: state.gameState.nightChoices,
       nightLog: state.gameState.nightLog,
+      dayLog: state.gameState.dayLog ?? [],
       corrections: state.gameState.corrections ?? [],
+      // Jawny komendant (po przejęciu głosowania) i przejęcie mocy znachora przez ucznia.
+      revealedCommanderId: state.gameState.commanderTakeover?.commanderId ?? null,
+      healerInheritance: state.gameState.healerInheritance ?? null,
       winnerText:
         state.gameState.winner === WINNERS.sect
           ? FINISH_TEXTS.sect
@@ -299,6 +321,10 @@ function renderState({ keepScroll = false } = {}) {
     renderDayVote();
     return;
   }
+  if (state.phase === 'day-commander') {
+    renderDayCommander();
+    return;
+  }
   if (state.phase === 'day-result') {
     renderDayResult();
     return;
@@ -340,17 +366,49 @@ function openDialog({ title, message, confirmLabel, onConfirm, onCancel }) {
   renderState();
 }
 
+/**
+ * Role dodatkowe dla bieżącej liczby grających: wybór mistrza gry albo wartości
+ * domyślne, zawsze znormalizowane (skład musi się zmieścić w liczbie graczy).
+ * @param {number} playingCount
+ * @returns {{commander: boolean, apprentice: boolean}}
+ */
+function getEffectiveRoleOptions(playingCount) {
+  return normalizeOptionalRoles(
+    playingCount,
+    state.roleOptions ?? getDefaultOptionalRoles(playingCount),
+  );
+}
+
 function renderSetup() {
   const playingNames = getPlayingNames();
-  const belowMinimum = playingNames.length < MIN_PLAYERS;
+  const playingCount = playingNames.length;
+  const belowMinimum = playingCount < MIN_PLAYERS;
+  const roleOptions = getEffectiveRoleOptions(playingCount);
+
+  // Przełącznik jest zablokowany, gdy włączenie roli przekroczyłoby skład.
+  const optionalRoles = ['commander', 'apprentice'].map((key) => {
+    const noRoom = !belowMinimum && !roleOptions[key] && !canEnableOptionalRole(playingCount, roleOptions, key);
+
+    return {
+      key,
+      checked: roleOptions[key],
+      disabled: belowMinimum || noRoom,
+      noRoom,
+    };
+  });
 
   state.container.append(
     renderSetupScreen({
       players: state.players,
       gmName: state.gmName,
-      playingCount: playingNames.length,
-      lineupText: belowMinimum ? '' : formatLineup(getLineup(playingNames.length)),
+      playingCount,
+      lineupText: belowMinimum ? '' : formatLineup(getLineup(playingCount, roleOptions)),
       belowMinimum,
+      optionalRoles,
+      onToggleRole: (key, checked) => {
+        state.roleOptions = { ...getEffectiveRoleOptions(playingCount), [key]: checked };
+        renderState({ keepScroll: true });
+      },
       onGmChange: (value) => {
         state.gmName = value === '' ? null : value;
         renderState();
@@ -370,7 +428,11 @@ function dealRoles() {
     return;
   }
 
-  state.gameState = createGameState({ gmName: state.gmName, playerNames: playingNames });
+  state.gameState = createGameState({
+    gmName: state.gmName,
+    playerNames: playingNames,
+    roleOptions: getEffectiveRoleOptions(playingNames.length),
+  });
   state.revealPlayerId = null;
   state.phase = 'check';
   renderState();
@@ -588,18 +650,28 @@ function startNight() {
 
   const nightNumber = state.gameState.nightNumber + 1;
   const players = state.gameState.players;
-  const doctor = players.find((player) => player.roleId === 'doctor');
   const detective = players.find((player) => player.roleId === 'detective');
+  const healer = getPlayerByRole(state.gameState, ROLES.doctor.id);
+  const apprentice = getPlayerByRole(state.gameState, ROLES.apprentice.id);
 
   state.gameState = {
     ...state.gameState,
     nightNumber,
     nightChoices: createEmptyNightChoices(),
   };
+
+  // Moc znachora ma żywy znachor albo — po przejęciu — żywy uczeń (engine.getHealerActor).
+  const healerActor = getHealerActor(state.gameState);
+
   state.nightSteps = createNightSteps({
     nightNumber,
-    doctorAlive: Boolean(doctor && doctor.alive),
+    doctorAlive: healerActor !== null,
     detectiveAlive: Boolean(detective && detective.alive),
+    // Pierwsza noc: znachor i uczeń budzą się razem, żeby się poznać.
+    apprenticeMeets:
+      nightNumber === 1 && Boolean(healer?.alive) && Boolean(apprentice?.alive),
+    apprenticeActingName:
+      healerActor && healerActor.roleId === ROLES.apprentice.id ? healerActor.name : null,
   });
   state.nightStep = 0;
   state.nightHistory = [];
@@ -869,9 +941,93 @@ function renderDayVote() {
         renderState({ keepScroll: true });
       },
       onConfirm: confirmDayVote,
+      // Przycisk komendanta tylko wtedy, gdy żyje i jeszcze nie użył mocy.
+      onCommanderTakeover:
+        getCommanderBlocker(state.gameState) === null ? askCommanderTakeover : null,
       ...gmActions(),
     }),
   );
+}
+
+/** „Komendant przejmuje głosowanie” — najpierw potwierdzenie (ujawnienie jest publiczne). */
+function askCommanderTakeover() {
+  const commander = getPlayerByRole(state.gameState, ROLES.commander.id);
+
+  if (!commander || getCommanderBlocker(state.gameState) !== null) {
+    return;
+  }
+
+  openDialog({
+    title: t('games.sect.dialog.commanderTitle'),
+    message: t('games.sect.dialog.commanderMessage', { name: commander.name }),
+    confirmLabel: t('games.sect.dialog.commanderConfirm'),
+    onConfirm: () => {
+      state.selection = null;
+      state.phase = 'day-commander';
+      renderState();
+    },
+  });
+}
+
+/** Ekran komendanta: wybór żywej osoby (nie samego komendanta) i „Zatwierdź”. */
+function renderDayCommander() {
+  const commander = getPlayerByRole(state.gameState, ROLES.commander.id);
+
+  // Moc mogła się zdezaktualizować (np. korekta na Tablicy) — wracamy do głosowania.
+  if (!commander || getCommanderBlocker(state.gameState) !== null) {
+    state.phase = 'day-vote';
+    renderState();
+    return;
+  }
+
+  state.container.append(
+    renderGmPickScreen({
+      label: t('games.sect.day.commanderLabel', {
+        day: formatNumber(state.gameState.nightNumber),
+      }),
+      sayText: getCommanderSay(commander.name),
+      doText: DAY_TEXTS.commanderDo,
+      candidates: getCommanderTargets(state.gameState).map((player) => ({
+        id: player.id,
+        name: player.name,
+      })),
+      selectedId: state.selection,
+      onSelect: (playerId) => {
+        state.selection = playerId;
+        renderState({ keepScroll: true });
+      },
+      onConfirm: confirmCommanderTakeover,
+      // „Cofnij krok” — komendant się rozmyślił, wracamy do zwykłego głosowania.
+      onUndo: () => {
+        state.selection = null;
+        state.phase = 'day-vote';
+        renderState();
+      },
+      ...gmActions(),
+    }),
+  );
+}
+
+/** Zatwierdza wybór komendanta: osoba odpada, moc zużyta, potem wynik i sprawdzenie wygranej. */
+function confirmCommanderTakeover() {
+  const targetId = state.selection;
+  const target = state.gameState.players.find((item) => item.id === targetId);
+  const result = commanderTakeOver(state.gameState, targetId);
+
+  if (!result.ok || !target) {
+    state.selection = null;
+    renderState();
+    return;
+  }
+
+  state.gameState = { ...result.state, winner: checkWin(result.state) };
+  state.dayResult = {
+    removedName: target.name,
+    removedRoleName: ROLES[target.roleId].name,
+  };
+  state.selection = null;
+  state.phase = 'day-result';
+  renderState();
 }
 
 /** Zapisuje wynik głosowania i sprawdza warunek wygranej. */
@@ -950,6 +1106,7 @@ function renderFinished() {
       winnerText: { text: isSect ? FINISH_TEXTS.sect : FINISH_TEXTS.villagers, isSect },
       players: state.gameState.players,
       nightLog: state.gameState.nightLog,
+      dayLog: state.gameState.dayLog ?? [],
       onNewRoles: playAgainNewRoles,
       onExit: () => state.api.exit(),
     }),

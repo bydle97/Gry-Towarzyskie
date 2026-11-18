@@ -21,12 +21,74 @@ export const DETECTIVE_RESULT_TEXTS = Object.freeze({
 });
 
 /**
- * Scenariusz jednej nocy. Każdy krok ma tekst do przeczytania i polecenie "Zrób".
- * pick: 'sect' | 'doctor' | 'detective' | null (null = krok bez wybierania osoby).
- * @param {{nightNumber: number, doctorAlive: boolean, detectiveAlive: boolean}} options
+ * Kroki znachora. W pierwszą noc, gdy żyją znachor i uczeń, najpierw budzą się
+ * obaj, żeby się poznać, potem uczeń zamyka oczy, a znachor (oczy już otwarte)
+ * wybiera jak zwykle. Gdy moc znachora ma uczeń, „Zrób” podpowiada mistrzowi, kto to.
+ * @param {{doctorAlive: boolean, apprenticeMeets: boolean, apprenticeActingName: string|null}} options
  * @returns {Array<{id: string, say: string, doText: string, pick: string|null}>}
  */
-export function createNightSteps({ nightNumber, doctorAlive, detectiveAlive }) {
+function createHealerSteps({ doctorAlive, apprenticeMeets, apprenticeActingName }) {
+  const meetSteps = apprenticeMeets
+    ? [
+        {
+          id: 'healer-apprentice-meet',
+          say: t('games.sect.script.healerMeet.say'),
+          doText: t('games.sect.script.healerMeet.do'),
+          pick: null,
+        },
+        {
+          id: 'apprentice-close',
+          say: t('games.sect.script.apprenticeClose.say'),
+          doText: t('games.sect.script.apprenticeClose.do'),
+          pick: null,
+        },
+      ]
+    : [];
+
+  let doText = t('games.sect.script.doctor.doDead');
+
+  if (doctorAlive && apprenticeActingName) {
+    doText = t('games.sect.script.doctor.doApprentice', { name: apprenticeActingName });
+  } else if (doctorAlive) {
+    doText = t('games.sect.script.doctor.doAlive');
+  }
+
+  return [
+    ...meetSteps,
+    {
+      id: 'doctor',
+      // Po poznaniu z uczniem znachor ma już otwarte oczy.
+      say: apprenticeMeets
+        ? t('games.sect.script.doctor.sayAfterMeet')
+        : t('games.sect.script.doctor.say'),
+      doText,
+      pick: doctorAlive ? 'doctor' : null,
+    },
+  ];
+}
+
+/**
+ * Scenariusz jednej nocy. Każdy krok ma tekst do przeczytania i polecenie "Zrób".
+ * pick: 'sect' | 'doctor' | 'detective' | null (null = krok bez wybierania osoby).
+ * @param {{
+ *   nightNumber: number,
+ *   doctorAlive: boolean,
+ *   detectiveAlive: boolean,
+ *   apprenticeMeets?: boolean,
+ *   apprenticeActingName?: string|null,
+ * }} options
+ *   doctorAlive — ktoś ma moc znachora (znachor albo uczeń po przejęciu),
+ *   apprenticeMeets — pierwsza noc, żyją znachor i uczeń: budzą się razem,
+ *   apprenticeActingName — imię ucznia, gdy to on ma dziś moc znachora
+ * @returns {Array<{id: string, say: string, doText: string, pick: string|null}>}
+ */
+export function createNightSteps({
+  nightNumber,
+  doctorAlive,
+  detectiveAlive,
+  apprenticeMeets = false,
+  apprenticeActingName = null,
+}) {
   return [
     {
       id: 'night-start',
@@ -49,14 +111,7 @@ export function createNightSteps({ nightNumber, doctorAlive, detectiveAlive }) {
       doText: t('games.sect.script.sectClose.do'),
       pick: null,
     },
-    {
-      id: 'doctor',
-      say: t('games.sect.script.doctor.say'),
-      doText: doctorAlive
-        ? t('games.sect.script.doctor.doAlive')
-        : t('games.sect.script.doctor.doDead'),
-      pick: doctorAlive ? 'doctor' : null,
-    },
+    ...createHealerSteps({ doctorAlive, apprenticeMeets, apprenticeActingName }),
     {
       id: 'doctor-close',
       say: t('games.sect.script.doctorClose.say'),
@@ -124,7 +179,19 @@ export const DAY_TEXTS = Object.freeze({
   get resultDo() {
     return t('games.sect.script.day.resultDo');
   },
+  get commanderDo() {
+    return t('games.sect.script.commander.do');
+  },
 });
+
+/**
+ * Tekst do przeczytania, gdy komendant przejmuje głosowanie.
+ * @param {string} commanderName
+ * @returns {string}
+ */
+export function getCommanderSay(commanderName) {
+  return t('games.sect.script.commander.say', { name: commanderName });
+}
 
 /**
  * Ogłoszenie wyniku głosowania.

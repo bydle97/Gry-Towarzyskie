@@ -55,6 +55,22 @@ const GUIDE_DATA = Object.freeze([
     ],
   },
   {
+    title: 'games.sect.guide.apprentice.title',
+    points: [
+      'games.sect.guide.apprentice.point1',
+      'games.sect.guide.apprentice.point2',
+      'games.sect.guide.apprentice.point3',
+    ],
+  },
+  {
+    title: 'games.sect.guide.commander.title',
+    points: [
+      'games.sect.guide.commander.point1',
+      'games.sect.guide.commander.point2',
+      'games.sect.guide.commander.point3',
+    ],
+  },
+  {
     title: 'games.sect.guide.end.title',
     points: ['games.sect.guide.end.point1', 'games.sect.guide.end.point2'],
   },
@@ -74,6 +90,8 @@ const GUIDE_DATA = Object.freeze([
       'games.sect.guide.legend.point2',
       'games.sect.guide.legend.point3',
       'games.sect.guide.legend.point4',
+      'games.sect.guide.legend.point5',
+      'games.sect.guide.legend.point6',
     ],
   },
 ]);
