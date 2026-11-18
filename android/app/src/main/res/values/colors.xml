@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Tło aplikacji (to samo co --color-bg w www/css/base.css): okno, ekran startowy,
+    <!-- Tło aplikacji (to samo co zmienna color-bg w www/css/base.css): okno, ekran startowy,
          paski systemowe. Dzięki temu przy starcie nie ma białego błysku. -->
     <color name="app_background">#0D1120</color>
 </resources>
