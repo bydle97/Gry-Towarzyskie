@@ -78,7 +78,10 @@ start().catch((error) => {
   const container = document.getElementById('app');
 
   if (container) {
-    // Komunikat awaryjny przed/bez i18n — aplikacja nie ma wtedy tłumaczeń.
-    container.textContent = 'Nie udało się uruchomić aplikacji. Odśwież stronę.';
+    // Komunikat awaryjny przed/bez i18n — aplikacja nie ma wtedy tłumaczeń,
+    // więc tekst jest wprost, w obu językach. Częsta przyczyna: brak serwera.
+    container.textContent =
+      'Nie udało się uruchomić aplikacji. Odśwież stronę. Aplikację trzeba otworzyć przez serwer (adres strony), a nie z pliku. ' +
+      '/ The app failed to start. Reload the page. Open it through a web server (a page address), not as a file.';
   }
 });
