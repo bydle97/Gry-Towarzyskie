@@ -19,6 +19,8 @@ import { loadLines } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
 import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, el, guardTaps } from '../../core/dom.js';
 import { getLanguage, t } from '../../core/i18n.js';
+// Wibracja jest opcjonalna i nigdy nie przerywa gry (Haptics w APK, navigator.vibrate w przeglądarce).
+import { vibrate } from '../../core/native.js';
 import { shuffle } from '../../core/random.js';
 import { releaseWakeLock, requestWakeLock } from '../../core/wake-lock.js';
 import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
@@ -315,17 +317,6 @@ function setHubHeaderHidden(hidden) {
   const header = document.querySelector('.app-header');
   if (header) {
     header.hidden = hidden;
-  }
-}
-
-/** Wibracja jest opcjonalna i nigdy nie może przerwać gry. */
-function vibrate(durationMs) {
-  try {
-    if (typeof navigator.vibrate === 'function') {
-      navigator.vibrate(durationMs);
-    }
-  } catch (error) {
-    // brak wsparcia lub zgody — po prostu gramy dalej
   }
 }
 

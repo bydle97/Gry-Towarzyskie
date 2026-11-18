@@ -11,7 +11,12 @@
  *
  * Brak API (starsze przeglądarki, część WebView) i odmowa przeglądarki są
  * obsługiwane po cichu — gra działa dalej, tylko ekran może się wygasić.
+ *
+ * W aplikacji na Androida (Capacitor) zamiast Wake Lock API używamy natywnej
+ * flagi okna przez wtyczkę KeepAwake (core/native.js) — Wake Lock API w Android
+ * WebView nie jest gwarantowane.
  */
+import { isNative, setNativeKeepAwake } from './native.js';
 
 /** @type {WakeLockSentinel | null} */
 let sentinel = null;
@@ -70,6 +75,13 @@ function stopListening() {
  */
 export async function requestWakeLock() {
   wanted = true;
+
+  if (isNative()) {
+    // Aplikacja na Androida: flaga okna FLAG_KEEP_SCREEN_ON (działa bez względu
+    // na obsługę Wake Lock API w WebView i nie wymaga odnawiania).
+    return setNativeKeepAwake(true);
+  }
+
   startListening();
 
   if (sentinel) {
@@ -107,7 +119,16 @@ export async function requestWakeLock() {
 
 /** Zwalnia blokadę i przestaje ją odnawiać (wołać przy pauzie, końcu gry i w unmount()). */
 export function releaseWakeLock() {
+  const wasWanted = wanted;
   wanted = false;
+
+  if (isNative()) {
+    if (wasWanted) {
+      void setNativeKeepAwake(false);
+    }
+    return;
+  }
+
   stopListening();
 
   const lock = sentinel;

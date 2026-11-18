@@ -9,6 +9,8 @@
  */
 import { clear, el } from '../../core/dom.js';
 import { formatNumber, t, tPlural } from '../../core/i18n.js';
+// Krótka wibracja: opcjonalna, nigdy nie przerywa gry (Haptics w APK, navigator.vibrate w przeglądarce).
+import { vibrate } from '../../core/native.js';
 import { MIN_PLAYERS, ROLES, getRoleRevealName } from './config.js';
 import { GUIDE_SECTIONS } from './gm-guide.js';
 
@@ -1686,17 +1688,6 @@ const TIMER_END_VIBRATION_MS = 300;
  */
 export function createCountdownState(seconds) {
   return { remainingMs: seconds * 1000, endAt: 0, running: false, alerted: false };
-}
-
-/** Krótka wibracja — opcjonalna, nigdy nie może przerwać gry. */
-function vibrate(durationMs) {
-  try {
-    if (typeof navigator.vibrate === 'function') {
-      navigator.vibrate(durationMs);
-    }
-  } catch (error) {
-    // brak wsparcia lub zgody — gramy dalej
-  }
 }
 
 /**
