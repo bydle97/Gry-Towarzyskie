@@ -58,12 +58,9 @@ jobs:
 
       - name: Sprawdzenie skopiowanych plików
         run: |
-          for path in index.html js/main.js css/base.css locales/pl.json locales/en.json data/pl data/en; do
+          for path in index.html js/main.js css/base.css css/fonts.css locales/pl.json locales/en.json data/pl data/en fonts fonts/LICENSES.md; do
             test -e "android/app/src/main/assets/public/$path" || { echo "Brak: $path"; exit 1; }
           done
-          if [ -d www/fonts ]; then
-            test -d android/app/src/main/assets/public/fonts || { echo "Brak: fonts"; exit 1; }
-          fi
 
       - name: Budowanie (gradlew assembleDebug)
         working-directory: android
@@ -79,7 +76,9 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk "dist/$name.apk"
           echo "name=$name" >> "$GITHUB_OUTPUT"
           unzip -l "dist/$name.apk" | grep -E "assets/public/(index.html|locales/|data/|fonts/)" | head -40
-          unzip -l "dist/$name.apk" | grep -q "assets/public/index.html"
+          for required in assets/public/index.html assets/public/locales/pl.json assets/public/data/pl/ assets/public/fonts/; do
+            unzip -l "dist/$name.apk" | grep -q "$required" || { echo "W APK brak: $required"; exit 1; }
+          done
 
       - name: Wysłanie artefaktu
         uses: actions/upload-artifact@v7
