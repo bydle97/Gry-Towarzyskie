@@ -10,7 +10,7 @@ Dziennik pracy autonomicznej na gałęzi `noc`. Zadania: docs/ZADANIA-NOC.md.
 | 1. Poprawki z przeglądu | zrobione | większość była już w kodzie; dorobione D-6, P-1 |
 | 2. APK (Capacitor) | zrobione | apk-1 zbudowany w Actions (success) |
 | 3. Wampir | zrobione | było w kodzie; dodany tools/test-vampire.mjs, apk-2 |
-| 4. Wygląd | do zrobienia | |
+| 4. Wygląd | zrobione | Fredoka i Lilita One odrzucone (brak polskich znaków), apk-3 |
 | 5. Wykończenie Androida | do zrobienia | |
 
 ## 2026-11-19 00:23 — Faza 0: ocena stanu
@@ -114,3 +114,38 @@ Dorobione:
 - Grep wartości w pl.json i en.json: brak słów „sekta, sekciarz, lekarz, śledczy” (oraz cult/sect/doctor/detective w EN). Identyfikatory i klucze (`sect`, `doctor`, `detective`) zostają, zgodnie z zadaniem.
 - Kwestie „Powiedz na głos”, wynik łowcy i legenda Tablicy zgodne z tekstem zadania 3a–3c.
 - Przeglądarka (headless Chrome, 360x800), 10 graczy: ekran „Role w tej grze” (2 wampiry, Hrabia, Sługa, Uczeń, Komendant), sprawdzenie wszystkich 10 ról przez „Jesteś [imię]? → Tak, pokaż rolę → Ukryj rolę”, instrukcja mistrza, noc 1 (12 kroków: wampiry, sługa, znachor z uczniem, łowca z wynikiem pod przytrzymaniem), poranek, dzień z licznikiem i przyciskiem „⭐ Komendant przejmuje głosowanie”, noce 2–3 (8 kroków). Bez błędów JS w konsoli. Wiedźmy (od 12 graczy) w przeglądarce nie przechodziłem; jej logikę pokrywa test w Node.
+
+## 2026-11-19 02:55 — Faza 4: wygląd
+
+### A. Czcionki (lokalne, OFL-1.1, Fontsource 5.3.0, podzbiory latin + latin-ext)
+| Gra | Czcionka | Wagi |
+|---|---|---|
+| HUB | Baloo 2 | 600, 700 |
+| Na oko | Nunito | 700, 800 |
+| W pół słowa | Patrick Hand | 400 |
+| Ping-pong | Barlow Condensed | 600, 700 (cyfry zegara `tabular-nums`) |
+| Wampir | Cinzel (nagłówki) + EB Garamond (tekst „Powiedz na głos”, przyciski) | 700 / 400, 600 |
+
+- **Test „Zażółć gęślą jaźń”** (plus wielkie litery, „ ”, – i —) w headless Chrome: dla każdego znaku porównałem szerokość z dwoma różnymi czcionkami zapasowymi (monospace vs serif); różnica = znak spoza czcionki docelowej.
+  - **Fredoka** (propozycja z zadania dla HUB): brak **ą ę ż Ą Ę Ż** → odrzucona.
+  - **Lilita One** (propozycja dla W pół słowa): brak **ą ć ę ń ś ź ż** (i wielkich) → odrzucona.
+  - Zamienniki z listy zadania: **Baloo 2** i **Patrick Hand** — komplet.
+  - Wynik końcowy: wszystkie 10 krojów/wag renderuje cały tekst testowy czcionką docelową (0 znaków z czcionki zapasowej).
+- Rozmiar: 20 plików woff2, łącznie ok. 464 KB (limit ok. 500 KB). Pakiety fontsource instalowane tymczasowo i usunięte (`npm prune`); package.json bez zmian.
+- `www/css/fonts.css` (@font-face z `unicode-range`, `font-display: swap`, zmienne `--font-hub`, `--font-na-oko`, `--font-w-pol-slowa`, `--font-ping-pong`, `--font-wampir`, `--font-wampir-text`), `www/fonts/LICENSES.md` + pełne teksty licencji w `www/fonts/licenses/`.
+- Router ustawia `data-game` na `<body>` i na sekcji ekranu (szczegóły i gra), karty HUB-a mają `data-game` i pokazują nazwę gry jej czcionką. Tekst ciągły zostaje systemowy.
+- Workflow: `fonts/`, `fonts/LICENSES.md` i `css/fonts.css` są wymagane w skopiowanych plikach, a `assets/public/fonts/` w APK.
+
+### B. Akcenty (`www/css/themes.css`)
+Na oko #5cc8ff (błękit), W pół słowa #ff8f5e (koral), Ping-pong #b8f04a (limonka), Wampir #e8606c jako akcent tekstu i bordo #9b1b30 na głównych przyciskach. Kontrast obliczony wg WCAG: akcent na tle 5,65–13,95:1, na powierzchni kart ≥ 4,81:1, tekst na akcencie ≥ 5,97:1, biały na bordo 7,37:1. Na stałe wpisane odcienie pomarańczu w Wampirze liczone teraz z `--color-accent` (z zapasową wartością dla starszych WebView bez `color-mix`).
+
+### C. Ping-pong
+Połowy ekranu jako wypukłe przyciski: ramka w kolorze drużyny, zaokrąglenia, gradient i cień, `:active` przesuwa w dół i zmniejsza cień (także obrócona górna połowa), aktywny gracz z pulsującą poświatą (wyłączoną przy `prefers-reduced-motion`) i napisem „👆 DOTKNIJ, GDY ODPOWIESZ”, druga połowa przygaszona z „Czeka…” (nowe klucze `games.duel.tapHint`, `games.duel.waiting` w pl i en). Pauza bez zmian w pasku między połowami (margines połówek nie nachodzi na pasek). Zwarty wariant dla ekranów niższych niż 640 px. Logika zegara i blokady dotknięć nietknięte.
+
+### D. HUB
+Tytuł „Gry Towarzyskie” większy (Baloo 2, do 3,4 rem), karty: ikona w kafelku w odcieniu gry, lewa krawędź w kolorze gry, nazwa czcionką gry, zakres graczy jako etykieta, zablokowana karta wyszarzona z czytelnym powodem.
+
+### E. Sprawdzenia
+- Zrzuty przed (faza 1) i po: 360x800 i 320x568, HUB, szczegóły wszystkich gier, „Na oko” (pytanie i ranking), Ping-pong (gotowi, w trakcie, pauza), Wampir (noc). Brak poziomego przewijania przy 320 px (`scrollWidth <= innerWidth`).
+- `__i18nCheck()`: 0 brakujących i 0 nadmiarowych w pl i en. `node --check`, `tools/test-content-pool.mjs`, `tools/test-vampire.mjs`: OK.
+- Pełna partia „Na oko”, 3 cykle noc/dzień w Wampirze, start pojedynku w Ping-pongu: bez błędów JS.
