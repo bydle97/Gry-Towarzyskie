@@ -1,0 +1,145 @@
+/*
+ * Motywy gier: czcionka nagłówków i akcent kolorystyczny per gra.
+ *
+ * Router ustawia <body data-game="<id gry>"> na ekranie szczegółów i ekranie gry
+ * (bez atrybutu = HUB). Czcionki gier (css/fonts.css) dotyczą nagłówków, dużych
+ * napisów (pytanie, hasło, kategoria, zegar) i przycisków; tekst ciągły zostaje
+ * w czcionce systemowej. Ciemny motyw bazowy (base.css) się nie zmienia.
+ *
+ * Kontrast (obliczony wg WCAG): każdy --color-accent na tle #0d1120 i na
+ * powierzchni #1a2136 ma co najmniej 4,8:1, a --color-on-accent na akcencie 5,9:1.
+ */
+
+:root {
+  --font-game: var(--font-hub);
+}
+
+body[data-game='guess-number'] {
+  /* Na oko: chłodny błękit. */
+  --font-game: var(--font-na-oko);
+  --color-accent: #5cc8ff;
+  --color-accent-strong: #8ad8ff;
+  --color-on-accent: #04202e;
+}
+
+body[data-game='revolver'] {
+  /* W pół słowa: ciepły koral. */
+  --font-game: var(--font-w-pol-slowa);
+  --color-accent: #ff8f5e;
+  --color-accent-strong: #ffab85;
+  --color-on-accent: #2a0f05;
+}
+
+body[data-game='duel'] {
+  /* Ping-pong: energetyczna limonka. */
+  --font-game: var(--font-ping-pong);
+  --color-accent: #b8f04a;
+  --color-accent-strong: #ccf57a;
+  --color-on-accent: #142100;
+}
+
+body[data-game='sect'] {
+  /* Wampir: krwista czerwień jako akcent tekstu, bordo na głównych przyciskach. */
+  --font-game: var(--font-wampir);
+  --color-accent: #e8606c;
+  --color-accent-strong: #f07c86;
+  --color-on-accent: #1a0306;
+}
+
+/* --- Czcionka gry: nagłówki, tytuł w pasku, przyciski ----------------------- */
+
+h1,
+h2,
+.app-title,
+.button {
+  font-family: var(--font-game);
+}
+
+/* Patrick Hand ma jedną wagę (400): bez sztucznego pogrubiania. */
+body[data-game='revolver'] :is(h1, h2, .app-title, .button, .rv-word, .rv-final) {
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+/* Patrick Hand jest drobniejszy od czcionki systemowej: nieco większe przyciski i tytuły. */
+body[data-game='revolver'] .button {
+  font-size: 1.2rem;
+}
+
+body[data-game='revolver'] .app-title,
+body[data-game='revolver'] .details__title {
+  font-size: 1.35em;
+}
+
+/* Ping-pong: kondensowana czcionka jest drobniejsza, więc przyciski nieco większe. */
+body[data-game='duel'] .button {
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
+}
+
+/* Wampir: Cinzel w nagłówkach, a w przyciskach czytelniejszy EB Garamond. */
+body[data-game='sect'] .button {
+  font-family: var(--font-wampir-text);
+  font-size: 1.125rem;
+}
+
+body[data-game='sect'] .button--primary {
+  background-color: #9b1b30;
+  color: #fff1f2;
+}
+
+body[data-game='sect'] .button--primary:active:not(:disabled) {
+  background-color: #7a1426;
+}
+
+/* --- Duże napisy w grach ------------------------------------------------------ */
+
+.gn-question,
+.gn-answer-value,
+.rv-word,
+.rv-final,
+.dl-category,
+.dl-winner,
+.dl-final,
+.dl-half__time,
+.sec-head__title,
+.sec-role-name,
+.sec-timer__value,
+.sec-finish__winner {
+  font-family: var(--font-game);
+}
+
+/* Cyfry zegarów i wyników o stałej szerokości: odliczanie nie „skacze”. */
+.dl-half__time,
+.sec-timer__value,
+.gn-answer-value,
+.rv-score__value,
+.dl-score__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wampir: tekst „Powiedz na głos” szeryfowy (EB Garamond), min. 22 px (clamp w ui.js). */
+.sec-say,
+.sec-result {
+  font-family: var(--font-wampir-text);
+}
+
+/* --- HUB: nazwa gry na karcie jej własną czcionką ---------------------------- */
+
+.game-card[data-game='guess-number'] .game-card__title {
+  font-family: var(--font-na-oko);
+}
+
+.game-card[data-game='revolver'] .game-card__title {
+  font-family: var(--font-w-pol-slowa);
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.game-card[data-game='duel'] .game-card__title {
+  font-family: var(--font-ping-pong);
+}
+
+.game-card[data-game='sect'] .game-card__title {
+  font-family: var(--font-wampir);
+}

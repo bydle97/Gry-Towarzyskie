@@ -1,4 +1,4 @@
-/* Reset i podstawy typografii. Zero zewnętrznych fontów — wyłącznie font systemowy. */
+/* Reset i podstawy typografii. Tekst ciągły: font systemowy; czcionki gier są lokalne (css/fonts.css). */
 
 *,
 *::before,

@@ -365,8 +365,19 @@ function renderRoute(route, { scrollToTop = true } = {}) {
   currentRoute = route;
 
   clear(shell.container);
-  const screenElement = el('section', { class: 'screen', dataset: { screen: route.name } });
+  const gameId = typeof route.params?.gameId === 'string' ? route.params.gameId : null;
+  const screenElement = el('section', {
+    class: 'screen',
+    dataset: gameId ? { screen: route.name, game: gameId } : { screen: route.name },
+  });
   shell.container.append(screenElement);
+  // Motyw gry (czcionka i akcent z css/themes.css): na <body>, żeby objął też
+  // nagłówek aplikacji. Poza szczegółami i ekranem gry atrybutu nie ma (motyw HUB-a).
+  if (gameId) {
+    document.body.dataset.game = gameId;
+  } else {
+    delete document.body.dataset.game;
+  }
 
   const screen = screens.get(route.name);
   shell.titleElement.textContent = resolveTitle(screen, route.params);

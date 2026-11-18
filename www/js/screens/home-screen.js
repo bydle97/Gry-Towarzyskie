@@ -108,6 +108,8 @@ function createGameCard(game, playersCount) {
     {
       class: isLocked ? 'game-card game-card--disabled' : 'game-card',
       type: 'button',
+      // Nazwa gry na karcie jej własną czcionką (css/themes.css).
+      dataset: { game: game.id },
       'aria-disabled': isLocked ? 'true' : null,
       onClick: () => {
         if (!isLocked) {
