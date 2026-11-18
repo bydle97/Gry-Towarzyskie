@@ -184,6 +184,30 @@ export function back() {
 }
 
 /**
+ * Systemowy „wstecz” spoza przeglądarki (przycisk / gest Androida w aplikacji,
+ * core/native.js). Idzie tą samą drogą co gest w przeglądarce: history.back()
+ * i popstate, więc na ekranie gry pokaże się okno „Zakończyć grę?”, a poza grą
+ * nastąpi krok wstecz.
+ * @returns {boolean} false na ekranie głównym (nie ma dokąd wrócić: aplikacja
+ *   może się zamknąć); true, gdy „wstecz” zostało obsłużone
+ */
+export function handleSystemBack() {
+  if (exitPrompt) {
+    // Okno „Zakończyć grę?” jest już otwarte: czekamy na wybór w oknie.
+    return true;
+  }
+  if (historyStack.length === 0) {
+    return false;
+  }
+  try {
+    window.history.back();
+  } catch (error) {
+    renderRoute(historyStack.pop());
+  }
+  return true;
+}
+
+/**
  * Przerysowuje bieżący ekran bez zmiany historii (np. po zmianie języka).
  * @returns {boolean} false, gdy żaden ekran nie jest jeszcze pokazany
  */

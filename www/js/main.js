@@ -4,7 +4,14 @@
  */
 import { getGameById, getGameTranslationKeys } from './core/games-registry.js';
 import { checkTranslations, init as initI18n, onLanguageChange, t } from './core/i18n.js';
-import { initRouter, navigate, refreshCurrentScreen, registerScreen } from './core/router.js';
+import { onSystemBack } from './core/native.js';
+import {
+  handleSystemBack,
+  initRouter,
+  navigate,
+  refreshCurrentScreen,
+  registerScreen,
+} from './core/router.js';
 import { renderHomeScreen } from './screens/home-screen.js';
 import { renderDetailsScreen } from './screens/details-screen.js';
 import { renderGameScreen } from './screens/game-screen.js';
@@ -67,6 +74,10 @@ async function start() {
     applyStaticTexts();
     refreshCurrentScreen();
   });
+
+  // Przycisk „wstecz” Androida (tylko w APK; w przeglądarce no-op): w grze okno
+  // „Zakończyć grę?”, poza grą krok wstecz, na ekranie głównym zamknięcie aplikacji.
+  onSystemBack(handleSystemBack);
 
   applyStaticTexts();
   navigate('home', {}, { reset: true });
