@@ -92,8 +92,9 @@ function getPlayersRequirement(game, playersCount) {
 }
 
 /**
- * Karta gry. Zablokowana karta ma prawdziwy atrybut disabled (nie tylko klasę),
- * a powód blokady jest widoczny bez dotykania karty.
+ * Karta gry. Zablokowana karta ma aria-disabled="true" zamiast disabled: zostaje
+ * w kolejności Tab, więc czytnik ekranu przeczyta powód blokady, a dotknięcie
+ * jest ignorowane w kodzie. Powód blokady jest widoczny bez dotykania karty.
  * @param {Readonly<import('../core/game-contract.js').GameDefinition>} game
  * @param {number} playersCount
  * @returns {HTMLButtonElement}
@@ -107,8 +108,12 @@ function createGameCard(game, playersCount) {
     {
       class: isLocked ? 'game-card game-card--disabled' : 'game-card',
       type: 'button',
-      disabled: isLocked,
-      onClick: () => navigate('details', { gameId: game.id }),
+      'aria-disabled': isLocked ? 'true' : null,
+      onClick: () => {
+        if (!isLocked) {
+          navigate('details', { gameId: game.id });
+        }
+      },
     },
     [
       el('span', { class: 'game-card__icon', 'aria-hidden': 'true', text: game.icon }),

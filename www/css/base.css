@@ -108,6 +108,12 @@ button {
   outline-offset: 2px;
 }
 
+/* Tytuł ekranu dostaje focus z kodu (router, dla czytników ekranu): bez obwódki. */
+h1[tabindex='-1']:focus,
+h2[tabindex='-1']:focus {
+  outline: none;
+}
+
 .noscript {
   padding: var(--space-4);
   text-align: center;

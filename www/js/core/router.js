@@ -386,7 +386,31 @@ function renderRoute(route, { scrollToTop = true } = {}) {
 
   if (scrollToTop) {
     window.scrollTo(0, 0);
+    focusScreenTitle(screenElement);
   }
+}
+
+/**
+ * Po przejściu na nowy ekran przenosi focus na jego tytuł, żeby czytnik ekranu
+ * ogłosił nowy ekran (inaczej focus zostaje na usuniętym elemencie). Tytułem jest
+ * nagłówek aplikacji albo — gdy ten jest ukryty (ekran główny) — pierwszy
+ * nagłówek ekranu. tabindex="-1": focus z kodu, ale bez miejsca w kolejności Tab.
+ * Przy odświeżeniu bieżącego ekranu (zmiana języka) focus zostaje tam, gdzie był.
+ * @param {HTMLElement} screenElement
+ */
+function focusScreenTitle(screenElement) {
+  const target =
+    shell.header && !shell.header.hidden
+      ? shell.titleElement
+      : screenElement.querySelector('h1, h2');
+
+  if (!target) {
+    return;
+  }
+  if (!target.hasAttribute('tabindex')) {
+    target.setAttribute('tabindex', '-1');
+  }
+  target.focus({ preventScroll: true });
 }
 
 function resolveTitle(screen, params) {
