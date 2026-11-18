@@ -143,3 +143,83 @@ body[data-game='sect'] .button--primary:active:not(:disabled) {
 .game-card[data-game='sect'] .game-card__title {
   font-family: var(--font-wampir);
 }
+
+/* --- HUB: tytuł i karty gier ------------------------------------------------- */
+
+.home-title {
+  font-family: var(--font-hub);
+  font-size: clamp(2.4rem, 11.5vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 0 28px rgba(255, 179, 71, 0.25);
+}
+
+.home-games__title {
+  font-family: var(--font-hub);
+  font-size: 1.3rem;
+}
+
+/* Akcent karty = akcent gry (te same kolory co w motywach powyżej). */
+.game-card[data-game='guess-number'] {
+  --card-accent: #5cc8ff;
+}
+
+.game-card[data-game='revolver'] {
+  --card-accent: #ff8f5e;
+}
+
+.game-card[data-game='duel'] {
+  --card-accent: #b8f04a;
+}
+
+.game-card[data-game='sect'] {
+  --card-accent: #e8606c;
+}
+
+.game-card {
+  position: relative;
+  gap: var(--space-4);
+  border-left: 4px solid var(--card-accent, var(--color-accent));
+}
+
+/* Ikona w zaokrąglonym kafelku w odcieniu gry. */
+.game-card__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--card-accent, var(--color-accent)) 16%, transparent);
+  font-size: 1.9rem;
+}
+
+.game-card__title {
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.game-card__body {
+  gap: 4px;
+}
+
+/* Zakres graczy jako mała etykieta. */
+.game-card__meta {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 2px var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--color-accent)) 45%, transparent);
+  border-radius: 999px;
+  color: var(--card-accent, var(--color-accent));
+}
+
+/* Zablokowana karta: wyszarzony akcent, ale czytelne teksty i powód blokady. */
+.game-card--disabled {
+  border-left-color: var(--color-border);
+}
+
+.game-card--disabled .game-card__meta {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
