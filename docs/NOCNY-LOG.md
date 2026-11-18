@@ -9,7 +9,7 @@ Dziennik pracy autonomicznej na gałęzi `noc`. Zadania: docs/ZADANIA-NOC.md.
 | 0. Ocena stanu | zrobione | |
 | 1. Poprawki z przeglądu | zrobione | większość była już w kodzie; dorobione D-6, P-1 |
 | 2. APK (Capacitor) | zrobione | apk-1 zbudowany w Actions (success) |
-| 3. Wampir | do sprawdzenia | logika i UI były już w kodzie |
+| 3. Wampir | zrobione | było w kodzie; dodany tools/test-vampire.mjs, apk-2 |
 | 4. Wygląd | do zrobienia | |
 | 5. Wykończenie Androida | do zrobienia | |
 
@@ -101,3 +101,16 @@ Decyzja: list zmienionych pytań (W-1) nie odtwarzam, bo dane były poprawione w
 - Zawartość APK: krok workflow z `unzip -l ... | grep -q assets/public/index.html` przeszedł; logi kroków wymagają zalogowania, więc pełnej listy nie przeczytałem.
 - docs/APK.md: pobieranie, instalacja, wersje, release/AAB (klucz nigdy w repo), ostrzeżenie o appId, lista do sprawdzenia na telefonie.
 - Dodatkowo `tools/test-vampire.mjs` (zbiorczy test Wampira, faza 3) — wynik OK.
+
+## 2026-11-19 01:55 — Faza 3: gra „Wampir”
+
+Stan zastany: motyw, role (Wampir, Hrabia, Sługa, Znachor, Uczeń, Wiedźma, Łowca, Komendant, Mieszkaniec), ekran „Role w tej grze”, scenariusz, instrukcja mistrza, Tablica z legendą i docs/ROLE.md były już zrobione w commitach autora („Wampir: nowy motyw gry sekta”, „mechanika wampira”). Sprawdziłem je zamiast pisać od nowa.
+
+Dorobione:
+- `tools/test-vampire.mjs` (Node, kod wyjścia 0/1): uruchamia 5 szczegółowych skryptów `tools/sect-*.js` i zbiera ich werdykty, a do tego sprawdza domyślne role dla N = 5, 7, 8, 10, 12, 20 względem progów z zadania 3d, Hrabiego jako jednego z wampirów, blokadę przewagi wampirów od startu i ostrzeżenie „ponad 1/3”. Wynik: **OK** (wszystkie przypadki z listy zadania pokryte).
+- EN: „investigation results” → „the hunter's results” w instrukcji mistrza.
+
+### Sprawdzenia
+- Grep wartości w pl.json i en.json: brak słów „sekta, sekciarz, lekarz, śledczy” (oraz cult/sect/doctor/detective w EN). Identyfikatory i klucze (`sect`, `doctor`, `detective`) zostają, zgodnie z zadaniem.
+- Kwestie „Powiedz na głos”, wynik łowcy i legenda Tablicy zgodne z tekstem zadania 3a–3c.
+- Przeglądarka (headless Chrome, 360x800), 10 graczy: ekran „Role w tej grze” (2 wampiry, Hrabia, Sługa, Uczeń, Komendant), sprawdzenie wszystkich 10 ról przez „Jesteś [imię]? → Tak, pokaż rolę → Ukryj rolę”, instrukcja mistrza, noc 1 (12 kroków: wampiry, sługa, znachor z uczniem, łowca z wynikiem pod przytrzymaniem), poranek, dzień z licznikiem i przyciskiem „⭐ Komendant przejmuje głosowanie”, noce 2–3 (8 kroków). Bez błędów JS w konsoli. Wiedźmy (od 12 graczy) w przeglądarce nie przechodziłem; jej logikę pokrywa test w Node.
