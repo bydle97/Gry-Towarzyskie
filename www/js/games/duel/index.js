@@ -17,9 +17,10 @@
  */
 import { loadLines } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
-import { clear, el } from '../../core/dom.js';
+import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, el, guardTaps } from '../../core/dom.js';
 import { getLanguage, t } from '../../core/i18n.js';
 import { shuffle } from '../../core/random.js';
+import { releaseWakeLock, requestWakeLock } from '../../core/wake-lock.js';
 import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
 import { TEAMS, mountTeamSetup } from '../../components/team-setup.js';
 import {
@@ -60,6 +61,12 @@ const TAP_GUARD_MS = 200;
 
 /** Ile ms po pokazaniu ekranu zegara nie można go wystartować (ochrona przed podwójnym dotknięciem). */
 const START_GUARD_MS = 300;
+
+/**
+ * Blokada dotknięć po końcu pojedynku: przegrywający często stuka w swoją połowę
+ * w chwili, gdy kończy się czas — to dotknięcie nie może „kliknąć” ekranu wyniku.
+ */
+const DUEL_END_GUARD_MS = 800;
 
 /** Od ilu ms pozostałego czasu zegar jest wyróżniony na czerwono. */
 const LOW_TIME_MS = 3000;
@@ -108,12 +115,11 @@ const VIBRATION_END_MS = 300;
  *   phase: 'loading' | 'load-error' | 'teams' | 'intro' | 'clock' | 'result' | 'finished',
  *   loadError: string,
  *   loadToken: number,
+ *   lastScreenKey: string,
+ *   exitCancelCallback: (() => void) | null,
  * }}
  */
 let state = null;
-
-/** Blokada wygaszania ekranu (jeśli API istnieje). */
-let wakeLockSentinel = null;
 
 const game = {
   id: 'duel',
@@ -169,6 +175,8 @@ const game = {
       phase: 'loading',
       loadError: '',
       loadToken: 0,
+      lastScreenKey: '',
+      exitCancelCallback: null,
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -181,8 +189,20 @@ const game = {
     releaseWakeLock();
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     setHubHeaderHidden(false);
+    if (state) {
+      clearTapGuard(state.container);
+    }
     removeStyles();
     state = null;
+  },
+
+  /**
+   * Gest „wstecz” (core/router.js): w trakcie pojedynku najpierw pauza zegara,
+   * potem to samo okno co przycisk „Zakończ grę”.
+   */
+  requestExit(options) {
+    pauseDuel();
+    requestExit(options);
   },
 };
 
@@ -309,49 +329,6 @@ function vibrate(durationMs) {
   }
 }
 
-/** Prosi o blokadę wygaszania ekranu, jeśli przeglądarka to wspiera. */
-async function requestWakeLock() {
-  if (!('wakeLock' in navigator)) {
-    return;
-  }
-
-  try {
-    const sentinel = await navigator.wakeLock.request('screen');
-    const clock = state?.clock;
-
-    if (!clock || clock.finished || clock.paused) {
-      try {
-        await sentinel.release();
-      } catch (error) {
-        // nie udało się zwolnić od razu — system zwolni blokadę sam
-      }
-      return;
-    }
-
-    wakeLockSentinel = sentinel;
-  } catch (error) {
-    wakeLockSentinel = null;
-  }
-}
-
-function releaseWakeLock() {
-  const sentinel = wakeLockSentinel;
-  wakeLockSentinel = null;
-
-  if (!sentinel) {
-    return;
-  }
-
-  try {
-    const result = sentinel.release();
-    if (result && typeof result.catch === 'function') {
-      result.catch(() => {});
-    }
-  } catch (error) {
-    // brak wsparcia — ignorujemy
-  }
-}
-
 /** Gdy karta przeglądarki znika z ekranu, zegar sam się wstrzymuje. */
 function handleVisibilityChange() {
   if (document.hidden) {
@@ -376,6 +353,7 @@ function renderState() {
       onCancel: () => {
         state.confirmDialog = null;
         container.querySelector('.dl-overlay')?.remove();
+        notifyExitCancelled();
       },
     });
     container.append(overlay);
@@ -391,6 +369,15 @@ function renderState() {
 
   clear(container);
   window.scrollTo(0, 0);
+
+  // Nowy ekran (faza albo runda) — krótka blokada dotknięć przed „przeklikaniem”.
+  // Sam zegar w trakcie pojedynku nie przerysowuje ekranu, więc dotknięć nie blokujemy.
+  const screenKey = `${state.phase}:${state.roundIndex}`;
+
+  if (screenKey !== state.lastScreenKey) {
+    state.lastScreenKey = screenKey;
+    guardTaps(container, SCREEN_CHANGE_GUARD_MS);
+  }
 
   if (state.phase === 'loading') {
     container.append(renderLoadingScreen());
@@ -734,11 +721,23 @@ function finishDuel() {
 
   state.scores[clock.winnerTeamId] += 1;
   state.phase = 'result';
+  guardTaps(state.container, DUEL_END_GUARD_MS);
   renderState();
 }
 
-function requestExit() {
-  if (!state || state.confirmDialog) {
+/**
+ * Okno „Zakończyć grę?” (przycisk w grze albo gest „wstecz”).
+ * @param {{onCancel?: () => void}} [options] onCancel — wołane po „Nie, zostań”
+ *   (router dopisuje wtedy z powrotem wpis historii); przycisk w grze go nie podaje
+ */
+function requestExit({ onCancel } = {}) {
+  if (!state) {
+    return;
+  }
+  if (typeof onCancel === 'function') {
+    state.exitCancelCallback = onCancel;
+  }
+  if (state.confirmDialog) {
     return;
   }
 
@@ -748,6 +747,16 @@ function requestExit() {
     confirmLabel: t('games.duel.exitConfirm'),
   };
   renderState();
+}
+
+/** Użytkownik został w grze — informujemy router (jeśli okno otworzył gest „wstecz”). */
+function notifyExitCancelled() {
+  const callback = state.exitCancelCallback;
+  state.exitCancelCallback = null;
+
+  if (typeof callback === 'function') {
+    callback();
+  }
 }
 
 /** Wyjście z ekranu zegara — przycisk jest widoczny tylko po pauzie. */

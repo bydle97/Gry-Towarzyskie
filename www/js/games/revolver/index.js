@@ -14,7 +14,7 @@
  */
 import { loadLines } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
-import { clear, el } from '../../core/dom.js';
+import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, el, guardTaps } from '../../core/dom.js';
 import { getLanguage, t } from '../../core/i18n.js';
 import { shuffle } from '../../core/random.js';
 import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
@@ -45,6 +45,9 @@ const MAX_REDRAWS_PER_ROUND = 2;
 /** Ile ms po zmianie hasła ignorujemy kolejne kliknięcia (ochrona przed podwójnym dotknięciem). */
 const REDRAW_GUARD_MS = 250;
 
+/** Blokada dotknięć po wskazaniu drużyny, która odgadła (ekran wyniku rundy). */
+const ROUND_WON_GUARD_MS = 400;
+
 /**
  * Stan jednej partii.
  *
@@ -73,6 +76,8 @@ const REDRAW_GUARD_MS = 250;
  *   loadError: string,
  *   loadToken: number,
  *   exitRequested: boolean,
+ *   lastScreenKey: string,
+ *   exitCancelCallback: (() => void) | null,
  * }}
  */
 let state = null;
@@ -130,6 +135,8 @@ const game = {
       loadError: '',
       loadToken: 0,
       exitRequested: false,
+      lastScreenKey: '',
+      exitCancelCallback: null,
     };
 
     renderState();
@@ -137,8 +144,16 @@ const game = {
   },
 
   unmount() {
+    if (state) {
+      clearTapGuard(state.container);
+    }
     removeStyles();
     state = null;
+  },
+
+  /** Gest „wstecz” (core/router.js): to samo okno co przycisk „Zakończ grę”. */
+  requestExit(options) {
+    requestExit(options);
   },
 };
 
@@ -260,6 +275,7 @@ function renderState() {
         state.exitRequested = false;
         // Zdejmujemy tylko nakładkę: ekran pod spodem (np. ręczny podział drużyn) zostaje bez zmian.
         container.querySelector('.rv-overlay')?.remove();
+        notifyExitCancelled();
       },
     });
     container.append(overlay);
@@ -269,6 +285,14 @@ function renderState() {
 
   clear(container);
   window.scrollTo(0, 0);
+
+  // Nowy ekran (faza albo runda) — krótka blokada dotknięć przed „przeklikaniem”.
+  const screenKey = `${state.phase}:${state.roundIndex}`;
+
+  if (screenKey !== state.lastScreenKey) {
+    state.lastScreenKey = screenKey;
+    guardTaps(container, SCREEN_CHANGE_GUARD_MS);
+  }
 
   if (state.phase === 'loading') {
     container.append(renderLoadingScreen());
@@ -374,12 +398,33 @@ function renderTeamsPhase() {
   state.container.append(createExitFooter(requestExit));
 }
 
-function requestExit() {
-  if (!state || state.exitRequested) {
+/**
+ * Okno „Zakończyć grę?” (przycisk w grze albo gest „wstecz”).
+ * @param {{onCancel?: () => void}} [options] onCancel — wołane po „Zostań w grze”
+ *   (router dopisuje wtedy z powrotem wpis historii); przycisk w grze go nie podaje
+ */
+function requestExit({ onCancel } = {}) {
+  if (!state) {
+    return;
+  }
+  if (typeof onCancel === 'function') {
+    state.exitCancelCallback = onCancel;
+  }
+  if (state.exitRequested) {
     return;
   }
   state.exitRequested = true;
   renderState();
+}
+
+/** Użytkownik został w grze — informujemy router (jeśli okno otworzył gest „wstecz”). */
+function notifyExitCancelled() {
+  const callback = state.exitCancelCallback;
+  state.exitCancelCallback = null;
+
+  if (typeof callback === 'function') {
+    callback();
+  }
 }
 
 /** Start partii po zatwierdzeniu drużyn: kolejności tłumaczy, hasło z puli, kto zaczyna. */
@@ -480,6 +525,8 @@ function handleTeamGuessed(teamId) {
   state.scores[teamId] += 1;
   state.lastWinnerId = teamId;
   state.phase = 'result';
+  // Dłuższa blokada niż zwykle: radosne podwójne dotknięcie nie może pominąć wyniku rundy.
+  guardTaps(state.container, ROUND_WON_GUARD_MS);
   renderState();
 }
 

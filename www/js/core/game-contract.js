@@ -20,6 +20,10 @@
  *   maxPlayers     {number}  maksymalna liczba graczy (liczba całkowita >= minPlayers)
  *   mount(container, players, api)  uruchamia grę
  *   unmount()                       sprząta po grze (timery, nasłuchy zdarzeń, wstrzyknięte style)
+ *   requestExit({ onCancel })       [opcjonalne] pokazuje okno wyjścia gry („Zakończyć grę?”);
+ *                                   wołane przy geście „wstecz”. Gra MUSI wywołać onCancel,
+ *                                   gdy użytkownik zostaje w grze (router dopisze wtedy
+ *                                   z powrotem wpis historii); przy zgodzie gra woła api.exit().
  *
  * Parametry funkcji mount:
  *   container {HTMLElement} pusty element, w którym gra rysuje swój interfejs.
@@ -77,6 +81,7 @@ export const GAME_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * @property {number} maxPlayers
  * @property {(container: HTMLElement, players: string[], api: GameApi) => void} mount
  * @property {() => void} unmount
+ * @property {(options: {onCancel?: () => void}) => void} [requestExit]
  */
 
 /**
@@ -122,6 +127,9 @@ export function validateGame(game) {
   }
   if (typeof game.unmount !== 'function') {
     errors.push('Pole "unmount" musi być funkcją bez argumentów.');
+  }
+  if (game.requestExit !== undefined && typeof game.requestExit !== 'function') {
+    errors.push('Pole "requestExit" (opcjonalne) musi być funkcją requestExit({ onCancel }).');
   }
   if (game.howToPlay !== undefined) {
     errors.push(...validateHowToPlay(game.howToPlay));

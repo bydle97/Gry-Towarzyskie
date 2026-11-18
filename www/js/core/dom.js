@@ -64,3 +64,63 @@ export function clear(node) {
   }
   return node;
 }
+
+/** Domyślna blokada dotknięć po zmianie ekranu gry (ms). */
+export const SCREEN_CHANGE_GUARD_MS = 300;
+
+/** @type {WeakMap<HTMLElement, {previous: string, until: number, timeoutId: number}>} */
+const tapGuards = new WeakMap();
+
+/**
+ * Krótka blokada dotknięć: na `ms` milisekund ustawia container.style.pointerEvents
+ * = 'none', a potem przywraca poprzednią wartość. Chroni przed „przeklikaniem”
+ * nowego ekranu drugim dotknięciem, które było przeznaczone dla poprzedniego.
+ *
+ * Kolejne wywołanie w trakcie blokady może ją tylko wydłużyć (nigdy skrócić),
+ * więc np. 800 ms po końcu pojedynku nie zostanie nadpisane przez 300 ms.
+ * @param {HTMLElement} container
+ * @param {number} ms
+ */
+export function guardTaps(container, ms) {
+  if (!container || !(ms > 0)) {
+    return;
+  }
+
+  const until = performance.now() + ms;
+  const existing = tapGuards.get(container);
+
+  if (existing && existing.until >= until) {
+    return;
+  }
+
+  if (existing) {
+    window.clearTimeout(existing.timeoutId);
+  }
+
+  const previous = existing ? existing.previous : container.style.pointerEvents;
+  container.style.pointerEvents = 'none';
+
+  const timeoutId = window.setTimeout(() => {
+    container.style.pointerEvents = previous;
+    tapGuards.delete(container);
+  }, ms);
+
+  tapGuards.set(container, { previous, until, timeoutId });
+}
+
+/**
+ * Natychmiast zdejmuje blokadę z guardTaps() i usuwa jej timer
+ * (wywoływać w unmount() gry, żeby nie zostawić aktywnego timera).
+ * @param {HTMLElement} container
+ */
+export function clearTapGuard(container) {
+  const existing = container ? tapGuards.get(container) : undefined;
+
+  if (!existing) {
+    return;
+  }
+
+  window.clearTimeout(existing.timeoutId);
+  container.style.pointerEvents = existing.previous;
+  tapGuards.delete(container);
+}

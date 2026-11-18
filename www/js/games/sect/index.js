@@ -10,8 +10,9 @@
  *
  * Brak zapisu na dysku: cały stan żyje w pamięci tego modułu.
  */
-import { clear } from '../../core/dom.js';
+import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, guardTaps } from '../../core/dom.js';
 import { formatNumber, t } from '../../core/i18n.js';
+import { releaseWakeLock, requestWakeLock } from '../../core/wake-lock.js';
 import { DISCUSSION_SECONDS, MIN_PLAYERS, ROLES, formatLineup, getLineup } from './config.js';
 import {
   WINNERS,
@@ -80,7 +81,8 @@ import {
  *   dayResult: Object | null,
  *   discussionTimer: Object | null,
  *   screenCleanup: Function | null,
- *   dialog: null | {title: string, message: string, confirmLabel: string, onConfirm: Function},
+ *   dialog: null | {title: string, message: string, confirmLabel: string, onConfirm: Function, onCancel?: Function},
+ *   lastScreenKey: string,
  * }}
  */
 let state = null;
@@ -138,6 +140,7 @@ const game = {
       discussionTimer: null,
       screenCleanup: null,
       dialog: null,
+      lastScreenKey: '',
     };
 
     renderState();
@@ -145,8 +148,17 @@ const game = {
 
   unmount() {
     destroyScreen();
+    releaseWakeLock();
+    if (state) {
+      clearTapGuard(state.container);
+    }
     removeStyles();
     state = null;
+  },
+
+  /** Gest „wstecz” (core/router.js): to samo okno co „Przerwij grę”. */
+  requestExit(options) {
+    requestExit(options);
   },
 };
 
@@ -186,6 +198,10 @@ function renderState({ keepScroll = false } = {}) {
       onCancel: () => {
         state.dialog = null;
         container.querySelector('.sec-overlay')?.remove();
+
+        if (typeof dialog.onCancel === 'function') {
+          dialog.onCancel();
+        }
       },
     });
 
@@ -223,6 +239,20 @@ function renderState({ keepScroll = false } = {}) {
   clear(container);
   if (!keepScroll) {
     window.scrollTo(0, 0);
+  }
+
+  // Nowy ekran (faza, podgląd, krok nocy, wynik śledczego) — krótka blokada dotknięć.
+  // Zaznaczenie osoby na liście (ten sam ekran) blokady nie włącza.
+  const screenKey = [
+    state.previewOpen ? 'preview' : state.phase,
+    state.gameState ? state.gameState.nightNumber : 0,
+    state.nightStep,
+    state.nightConfirmed,
+  ].join(':');
+
+  if (screenKey !== state.lastScreenKey) {
+    state.lastScreenKey = screenKey;
+    guardTaps(container, SCREEN_CHANGE_GUARD_MS);
   }
 
   if (state.previewOpen) {
@@ -287,13 +317,20 @@ function destroyScreen() {
 
 /**
  * Otwiera dialog potwierdzenia nad bieżącym ekranem.
- * @param {{title: string, message: string, confirmLabel: string, onConfirm: () => void}} options
+ * @param {{
+ *   title: string,
+ *   message: string,
+ *   confirmLabel: string,
+ *   onConfirm: () => void,
+ *   onCancel?: () => void,
+ * }} options
+ *   onCancel — opcjonalnie wołane po „Anuluj” (np. powiadomienie routera po geście „wstecz”)
  */
-function openDialog({ title, message, confirmLabel, onConfirm }) {
+function openDialog({ title, message, confirmLabel, onConfirm, onCancel }) {
   if (!state) {
     return;
   }
-  state.dialog = { title, message, confirmLabel, onConfirm };
+  state.dialog = { title, message, confirmLabel, onConfirm, onCancel };
   renderState();
 }
 
@@ -506,12 +543,28 @@ function askUnlockRole(playerId) {
   });
 }
 
-function requestExit() {
+/**
+ * Okno „Przerwać grę?” (przycisk w grze albo gest „wstecz”).
+ * @param {{onCancel?: () => void}} [options] onCancel — wołane po „Anuluj”
+ *   (router dopisuje wtedy z powrotem wpis historii); przyciski w grze go nie podają
+ */
+function requestExit({ onCancel } = {}) {
+  if (!state) {
+    return;
+  }
+
+  // Inne okno (np. „Jesteś …?”) jest otwarte — zamykamy je, zanim pokażemy okno wyjścia.
+  if (state.dialog) {
+    state.dialog = null;
+    state.container.querySelector('.sec-overlay')?.remove();
+  }
+
   openDialog({
     title: t('games.sect.dialog.exitTitle'),
     message: t('games.sect.dialog.exitMessage'),
     confirmLabel: t('games.sect.dialog.exitConfirm'),
     onConfirm: () => state.api.exit(),
+    onCancel: typeof onCancel === 'function' ? onCancel : undefined,
   });
 }
 
@@ -523,6 +576,10 @@ function nameOf(playerId) {
 
 /** Start nocy: numer, wyczyszczenie wyborów i scenariusz mistrza gry. */
 function startNight() {
+  // Od pierwszej nocy do końca gry ekran mistrza gry nie może się wygaszać
+  // (wywołanie przy każdej nocy jest bezpieczne — blokada jest jedna).
+  void requestWakeLock();
+
   const nightNumber = state.gameState.nightNumber + 1;
   const players = state.gameState.players;
   const doctor = players.find((player) => player.roleId === 'doctor');
@@ -877,6 +934,9 @@ function afterDayResult() {
 }
 
 function renderFinished() {
+  // Koniec gry — ekran może się już wygaszać.
+  releaseWakeLock();
+
   const isSect = state.gameState.winner === WINNERS.sect;
 
   state.container.append(

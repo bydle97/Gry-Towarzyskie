@@ -2,14 +2,30 @@
  * Ekran rozgrywki: montuje wybraną grę w kontenerze routera.
  * Gra dostaje imiona graczy z sesji oraz wspólne api (core/game-api.js).
  * Router wywoła zwrócony cleanup przed pokazaniem innego ekranu — wtedy pada unmount().
+ *
+ * W trakcie gry:
+ *  - gest/przycisk „wstecz” przeglądarki pokazuje okno wyjścia gry (game.requestExit),
+ *    a przy „Zostań w grze” router dopisuje z powrotem wpis historii,
+ *  - odświeżenie lub zamknięcie karty wywołuje ostrzeżenie przeglądarki (beforeunload).
  */
 import { el } from '../core/dom.js';
 import { formatNumber, t } from '../core/i18n.js';
 import { formatPlayersRange } from '../core/format.js';
 import { createGameApi } from '../core/game-api.js';
 import { getGameById } from '../core/games-registry.js';
-import { navigate } from '../core/router.js';
+import { navigate, setBackHandler } from '../core/router.js';
 import { getPlayerNames } from '../core/session.js';
+
+/**
+ * Ostrzeżenie przed opuszczeniem strony w trakcie gry. Treść okna ustala
+ * przeglądarka (własnego tekstu nie da się podać).
+ * @param {BeforeUnloadEvent} event
+ */
+function warnBeforeUnload(event) {
+  event.preventDefault();
+  // Starsze przeglądarki wymagają ustawienia returnValue.
+  event.returnValue = '';
+}
 
 /**
  * @param {{container: HTMLElement, params: {gameId?: string}}} context
@@ -79,7 +95,18 @@ export function renderGameScreen({ container, params }) {
     return undefined;
   }
 
+  // „Wstecz” w trakcie gry: okno „Zakończyć grę?” zamiast natychmiastowego wyjścia.
+  const removeBackHandler =
+    typeof game.requestExit === 'function'
+      ? setBackHandler(({ onCancel }) => game.requestExit({ onCancel }))
+      : () => {};
+
+  window.addEventListener('beforeunload', warnBeforeUnload);
+
   return () => {
+    removeBackHandler();
+    window.removeEventListener('beforeunload', warnBeforeUnload);
+
     try {
       game.unmount();
     } catch (error) {

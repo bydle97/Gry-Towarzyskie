@@ -17,7 +17,7 @@
  */
 import { loadQuestions } from '../../core/content-loader.js';
 import { drawNext, hasOther, redraw } from '../../core/content-pool.js';
-import { clear } from '../../core/dom.js';
+import { SCREEN_CHANGE_GUARD_MS, clear, clearTapGuard, guardTaps } from '../../core/dom.js';
 import { getLanguage, t } from '../../core/i18n.js';
 import { renderLoadErrorScreen, renderLoadingScreen } from '../../components/content-status.js';
 import {
@@ -85,6 +85,8 @@ const getQuestionKey = (question) => question.text;
  *   loadToken: number,
  *   exitRequested: boolean,
  *   renderPending: boolean,
+ *   lastScreenKey: string,
+ *   exitCancelCallback: (() => void) | null,
  * }}
  */
 let state = null;
@@ -147,6 +149,8 @@ const game = {
       loadToken: 0,
       exitRequested: false,
       renderPending: false,
+      lastScreenKey: '',
+      exitCancelCallback: null,
     };
 
     renderState();
@@ -154,8 +158,16 @@ const game = {
   },
 
   unmount() {
+    if (state) {
+      clearTapGuard(state.container);
+    }
     removeStyles();
     state = null;
+  },
+
+  /** Gest „wstecz” (core/router.js): to samo okno co przycisk „Zakończ grę”. */
+  requestExit(options) {
+    requestExit(options);
   },
 };
 
@@ -267,6 +279,7 @@ function renderState() {
       onConfirm: () => state.api.exit(),
       onCancel: () => {
         state.exitRequested = false;
+        notifyExitCancelled();
 
         if (state.renderPending) {
           state.renderPending = false;
@@ -286,6 +299,14 @@ function renderState() {
   state.renderPending = false;
   clear(container);
   window.scrollTo(0, 0);
+
+  // Nowy ekran (faza, pytanie albo tura) — krótka blokada dotknięć przed „przeklikaniem”.
+  const screenKey = `${state.phase}:${state.questionIndex}:${state.turnIndex}`;
+
+  if (screenKey !== state.lastScreenKey) {
+    state.lastScreenKey = screenKey;
+    guardTaps(container, SCREEN_CHANGE_GUARD_MS);
+  }
 
   if (state.phase === 'loading') {
     container.append(renderLoadingScreen());
@@ -375,12 +396,33 @@ function renderState() {
   container.append(createExitFooter(requestExit));
 }
 
-function requestExit() {
-  if (!state || state.exitRequested) {
+/**
+ * Okno „Zakończyć grę?” (przycisk w grze albo gest „wstecz”).
+ * @param {{onCancel?: () => void}} [options] onCancel — wołane po „Zostań w grze”
+ *   (router dopisuje wtedy z powrotem wpis historii); przycisk w grze go nie podaje
+ */
+function requestExit({ onCancel } = {}) {
+  if (!state) {
+    return;
+  }
+  if (typeof onCancel === 'function') {
+    state.exitCancelCallback = onCancel;
+  }
+  if (state.exitRequested) {
     return;
   }
   state.exitRequested = true;
   renderState();
+}
+
+/** Użytkownik został w grze — informujemy router (jeśli okno otworzył gest „wstecz”). */
+function notifyExitCancelled() {
+  const callback = state.exitCancelCallback;
+  state.exitCancelCallback = null;
+
+  if (typeof callback === 'function') {
+    callback();
+  }
 }
 
 /**
