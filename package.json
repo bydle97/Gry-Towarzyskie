@@ -9,6 +9,7 @@
     "cap:sync": "cap sync android"
   },
   "devDependencies": {
+    "@capacitor-community/keep-awake": "8.0.1",
     "@capacitor/android": "8.6.2",
     "@capacitor/app": "8.1.2",
     "@capacitor/assets": "4.0.0",
