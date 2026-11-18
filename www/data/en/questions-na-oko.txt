@@ -12,7 +12,7 @@
 
 How many eggs does a laying hen in commercial egg production lay on average per year? | 300 | eggs
 In what year was the first electric toaster invented? | 1893
-How many islands does Norway have, according to data from the Norwegian Mapping Authority? | 239,057 | islands
+How many islands does Norway have, according to data from the Norwegian Mapping Authority? | 239057 | islands
 In what year was the first SMS text message sent? | 1992
 In what year was the world's first ATM installed? | 1967
 In what year was the world's first public aquarium opened? | 1853
@@ -23,12 +23,12 @@ In what year did the world's first passenger steam railway begin operating? | 18
 In what year did Louis-Sébastien Lenormand perform the first recorded public parachute jump? | 1783
 In what year was the first roller coaster built on Coney Island in New York? | 1884
 How many litres of urine does an average adult produce over a period of 30 days? | 45 | litres
-How tall was the tallest cut Christmas tree in the world? | 64.6 | metres
+How many centimetres tall was the tallest cut Christmas tree in the world? | 6460 | centimetres
 How old was the oldest man to climb Mount Everest? | 80 | years
-How many hair follicles does the average human have across their entire body? | 5,000,000 | follicles
+How many hair follicles does the average human have across their entire body? | 5000000 | follicles
 What was the diameter of the world's largest circular pizza? | 40 | metres
 How many countries are there in Africa according to the United Nations classification? | 54 | countries
 How many novels and novellas had Stephen King published by November 2026? | 65 | books
-How many entries did the Oxford English Dictionary contain as of January 2026? | 520,779 | entries
+How many entries did the Oxford English Dictionary contain as of January 2026? | 520779 | entries
 How long did the longest screening in the history of the Cannes Film Festival last (the 2007 documentary *The War*)? | 870 | minutes
 In how many films had Brad Pitt appeared by November 2026, according to his Wikipedia filmography? | 61 | films

@@ -333,10 +333,11 @@
   filter: grayscale(1);
 }
 
+/* 0.75 zamiast 0.6: opis zablokowanej gry musi pozostać czytelny (kontrast ok. 4,5:1+). */
 .game-card--disabled .game-card__title,
 .game-card--disabled .game-card__desc,
 .game-card--disabled .game-card__meta {
-  opacity: 0.6;
+  opacity: 0.75;
 }
 
 .game-card--disabled .game-card__chevron {

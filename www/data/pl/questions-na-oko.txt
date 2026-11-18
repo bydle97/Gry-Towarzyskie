@@ -25,12 +25,12 @@ W którym roku uruchomiono pierwszą pasażerską kolej parową na świecie? | 1
 W którym roku Louis-Sébastien Lenormand wykonał pierwszy odnotowany publiczny skok ze spadochronem? | 1783
 W którym roku powstała pierwsza kolejka górska na Coney Island w Nowym Jorku? | 1884
 Ile litrów moczu przeciętnie produkuje dorosły człowiek w ciągu 30 dni? | 45 | litrów 
-Ile metrów wysokości miała najwyższa ścięta choinka bożonarodzeniowa na świecie? | 64,6 | metrów 
+Ile centymetrów wysokości miała najwyższa ścięta choinka bożonarodzeniowa na świecie? | 6460 | centymetrów
 Ile lat miał najstarszy mężczyzna, który zdobył Mount Everest? | 80 | lat 
-Ile mieszków włosowych ma przeciętnie człowiek na całym ciele? | 5 000 000 | mieszków 
+Ile mieszków włosowych ma przeciętnie człowiek na całym ciele? | 5000000 | mieszków
 Ile metrów średnicy miała największa okrągła pizza na świecie? | 40 | metrów
 Ile państw należy do Afryki według klasyfikacji ONZ? | 54 | państwa
 Ile powieści i nowel opublikował Stephen King do listopada 2026 roku? | 65 | książek
-Ile haseł zawiera Wielki słownik języka polskiego PAN według stanu ze stycznia 2026 roku? | 100 000 | haseł
+Ile haseł zawiera Wielki słownik języka polskiego PAN według stanu ze stycznia 2026 roku? | 100000 | haseł
 Jak długo trwała najdłuższa projekcja w historii festiwalu filmowego w Cannes (dokument „The War” z 2007 roku)? | 870 | minut
 W ilu filmach wystąpił Brad Pitt do listopada 2026 roku według filmografii Wikipedii? | 61 | filmów

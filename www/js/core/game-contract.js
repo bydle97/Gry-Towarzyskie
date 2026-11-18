@@ -3,34 +3,42 @@
  *
  * Każda gra to zwykły obiekt (zwykle eksport z `www/js/games/<id>/index.js`) z polami:
  *
- *   id          {string}   unikalny identyfikator: małe litery, cyfry i myślniki, np. "example"
- *   name        {string}   nazwa widoczna w interfejsie, np. "Przykład"
- *   description {string}   krótki opis (1–2 zdania) pokazywany na karcie gry
- *   icon        {string}   emoji zamiast pliku graficznego (działa offline, bez zależności)
- *   howToPlay   {HowToPlay} [opcjonalne] instrukcja dla ekranu szczegółów:
- *                          { goal: string, steps: string[], tips?: string[] }
- *                          goal — jedno zdanie o celu gry,
- *                          steps — od 3 do 6 krótkich kroków (każdy do ok. 140 znaków),
- *                          tips — opcjonalne krótkie wskazówki.
- *                          Gra bez howToPlay pokazuje na szczegółach sam opis.
- *   minPlayers  {number}   minimalna liczba graczy (liczba całkowita >= 1)
- *   maxPlayers  {number}   maksymalna liczba graczy (liczba całkowita >= minPlayers)
+ *   id             {string}  unikalny identyfikator: małe litery, cyfry i myślniki, np. "example"
+ *   nameKey        {string}  klucz tłumaczenia nazwy (np. "games.example.name");
+ *                            zamiast niego można podać stały tekst w polu `name`
+ *   descriptionKey {string}  klucz krótkiego opisu (1–2 zdania) z karty gry;
+ *                            zamiast niego można podać stały tekst w polu `description`
+ *   icon           {string}  emoji zamiast pliku graficznego (działa offline, bez zależności)
+ *   howToPlay      {Object}  [opcjonalne] instrukcja dla ekranu szczegółów, jako klucze:
+ *                            { goalKey: string, stepKeys: string[], tipKeys?: string[] }
+ *                            stepKeys — od 3 do 6 kluczy (każdy krok do ok. 140 znaków).
+ *                            Starszy wariant z gotowymi tekstami { goal, steps, tips } też działa.
+ *                            Gra bez howToPlay pokazuje na szczegółach sam opis.
+ *   howToPlayParams {Object} [opcjonalne] parametry podstawiane do tekstów instrukcji,
+ *                            np. { seconds: 10 } dla „{seconds} s”
+ *   minPlayers     {number}  minimalna liczba graczy (liczba całkowita >= 1)
+ *   maxPlayers     {number}  maksymalna liczba graczy (liczba całkowita >= minPlayers)
  *   mount(container, players, api)  uruchamia grę
- *   unmount()                       sprząta po grze (timery, nasłuchy zdarzeń)
+ *   unmount()                       sprząta po grze (timery, nasłuchy zdarzeń, wstrzyknięte style)
  *
  * Parametry funkcji mount:
  *   container {HTMLElement} pusty element, w którym gra rysuje swój interfejs.
  *                           Gra nie tworzy własnego <body> ani nie zmienia stylów globalnych.
- *   players   {string[]}    imiona graczy w kolejności z ekranu konfiguracji.
- *                           Indeks w tablicy jest identyfikatorem gracza w grze i nie zmienia
- *                           się przez całą rozgrywkę.
- *   api       {GameApi}     wspólne komponenty HUB-a (opisane niżej), żeby gry nie duplikowały UI.
+ *   players   {string[]}    IMIONA graczy w kolejności z ekranu głównego (unikalne bez względu
+ *                           na wielkość liter). Gra od razu na starcie nadaje każdemu graczowi
+ *                           stały identyfikator (np. `p1`…`pN`) i w stanie gry (tury, wyniki,
+ *                           drużyny, role) posługuje się wyłącznie tym id. Pozycja w tablicy
+ *                           NIE jest tożsamością gracza — kolejność tur i rankingi to osobne
+ *                           tablice identyfikatorów. Imiona służą tylko do wyświetlania.
+ *   api       {GameApi}     funkcje HUB-a opisane niżej (tylko te, które dostarcza createGameApi()).
  *
  * Zasady dla gier:
- *  - zero sieci: brak fetch/XHR/CDN, brak zewnętrznych fontów i obrazków,
+ *  - zero sieci poza własnymi plikami treści (core/content-loader.js); brak CDN,
+ *    zewnętrznych fontów i obrazków,
  *  - brak zapisu danych na dysku (localStorage, sessionStorage, IndexedDB) — stan żyje w pamięci,
  *  - po wywołaniu unmount() nie może zostać żaden aktywny timer ani nasłuch zdarzeń,
- *  - teksty w interfejsie po polsku, identyfikatory w kodzie po angielsku.
+ *  - wszystkie teksty widoczne dla gracza idą przez t() / tPlural() z core/i18n.js, a klucze
+ *    trzeba dodać do www/locales/pl.json i en.json; identyfikatory w kodzie po angielsku.
  */
 import { t } from './i18n.js';
 
@@ -38,31 +46,10 @@ import { t } from './i18n.js';
 export const GAME_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
- * Uchwyt elementu odsłanianego po przytrzymaniu przycisku.
- * @typedef {Object} HoldToRevealHandle
- * @property {HTMLElement} el      gotowy element do wstawienia w interfejs gry
- * @property {() => void} destroy  usuwa nasłuchy zdarzeń (wywołać przy sprzątaniu)
- */
-
-/**
- * Uchwyt prostego licznika czasu.
- * @typedef {Object} TimerHandle
- * @property {HTMLElement} el      gotowy element licznika do wstawienia w interfejs gry
- * @property {() => void} start    uruchamia odliczanie
- * @property {() => void} pause    zatrzymuje odliczanie
- * @property {() => void} reset    przywraca wartość początkową
- * @property {() => void} destroy  zatrzymuje licznik i usuwa nasłuchy
- */
-
-/**
- * Wspólne komponenty HUB-a przekazywane grze w funkcji mount.
+ * Funkcje HUB-a przekazywane grze w funkcji mount — dokładnie to, co zwraca
+ * createGameApi() z core/game-api.js. Wspólne elementy interfejsu (podział na
+ * drużyny, ekrany wczytywania) gry importują bezpośrednio z js/components/.
  * @typedef {Object} GameApi
- * @property {(options?: {title?: string, message?: string}) => Promise<void>} passPhone
- *   Ekran "Podaj telefon dalej" — zasłania poprzednią informację i czeka na kliknięcie.
- * @property {(options: {content: Node|string, hint?: string, holdMs?: number}) => HoldToRevealHandle} holdToReveal
- *   Treść widoczna wyłącznie podczas przytrzymania przycisku (odsłanianie roli/karty).
- * @property {(options?: {seconds?: number, onTick?: (left: number) => void, onFinish?: () => void}) => TimerHandle} timer
- *   Prosty licznik czasu (odliczanie w dół, start/pause/reset).
  * @property {(roleList: string[], playerCount: number) => string[]} shuffleRoles
  *   Losuje role: tasuje kopię listy ról i zwraca dokładnie `playerCount` pozycji
  *   (lista ról musi mieć co najmniej tyle pozycji, inaczej funkcja rzuca błąd).

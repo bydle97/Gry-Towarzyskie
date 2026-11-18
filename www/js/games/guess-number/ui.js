@@ -452,7 +452,8 @@ export function renderTurnScreen({
     type: 'text',
     inputMode: 'numeric',
     autocomplete: 'off',
-    maxLength: 9,
+    // Miejsce na liczby ze spacjami, np. „5 000 000” (spacje są usuwane przed walidacją).
+    maxLength: 12,
     'aria-describedby': question.unit ? `${errorId} ${unitId}` : errorId,
   });
   const errorBox = el('p', { class: 'form-error', id: errorId, role: 'alert', hidden: true });
@@ -479,7 +480,8 @@ export function renderTurnScreen({
         novalidate: true,
         onSubmit: (event) => {
           event.preventDefault();
-          const rawValue = input.value.trim();
+          // Spacje i twarde spacje (separatory tysięcy z klawiatury) są pomijane.
+          const rawValue = input.value.replace(/[\s   ]/g, '');
 
           if (rawValue === '') {
             showError(errorBox, t('games.guess-number.errors.empty'));
@@ -533,8 +535,10 @@ export function renderTurnScreen({
  *   ranking: Array<{playerId: string, value: number, distance: number}>,
  *   roundScores: Map<string, {points: number, place: number, exact: boolean}>,
  *   totals: Map<string, number>,
+ *   isLastQuestion: boolean,
  *   onNext: () => void,
  * }} options
+ *   isLastQuestion — po ostatnim pytaniu przycisk prowadzi do tabeli końcowej
  * @returns {HTMLElement}
  */
 export function renderAnswerScreen({
@@ -545,6 +549,7 @@ export function renderAnswerScreen({
   ranking,
   roundScores,
   totals,
+  isLastQuestion,
   onNext,
 }) {
   const answerText = question.unit
@@ -623,7 +628,9 @@ export function renderAnswerScreen({
     el('button', {
       class: 'button button--primary button--block',
       type: 'button',
-      text: t('games.guess-number.nextQuestion'),
+      text: isLastQuestion
+        ? t('games.guess-number.showResult')
+        : t('games.guess-number.nextQuestion'),
       onClick: onNext,
     }),
   ]);

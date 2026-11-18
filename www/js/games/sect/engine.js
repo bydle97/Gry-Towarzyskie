@@ -258,22 +258,17 @@ export function correctPlayerState(state, playerId, { alive }) {
 }
 
 /**
- * Restart partii z tymi samymi osobami.
- * keepRoles = true  → te same role, gracze oznaczani jako "rola sprawdzona"
- *                     (partia od razu od pierwszej nocy),
- * keepRoles = false → role tasowane na nowo i ponowne sprawdzanie ról.
+ * Restart partii z tymi samymi osobami: role są losowane na nowo i wszyscy
+ * sprawdzają je jeszcze raz (poprzednie role zostały ujawnione na ekranie końcowym).
  * @param {Object} state
- * @param {{keepRoles?: boolean}} [options]
  * @returns {Object} nowy stan
  */
-export function restartGame(state, { keepRoles = false } = {}) {
+export function restartGame(state) {
   const names = state.players.map((player) => player.name);
 
   return {
     ...state,
-    players: keepRoles
-      ? state.players.map((player) => ({ ...player, alive: true, death: null, roleChecked: true }))
-      : assignRoles(names),
+    players: assignRoles(names),
     nightNumber: 0,
     nightChoices: createEmptyNightChoices(),
     previousDoctorTargetId: null,

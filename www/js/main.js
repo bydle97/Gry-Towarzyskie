@@ -2,8 +2,8 @@
  * Punkt wejścia HUB-a: inicjalizuje tłumaczenia, podłącza router do szkieletu
  * z index.html, rejestruje ekrany i startuje od ekranu głównego.
  */
-import { getGameById } from './core/games-registry.js';
-import { init as initI18n, onLanguageChange, t } from './core/i18n.js';
+import { getGameById, getGameTranslationKeys } from './core/games-registry.js';
+import { checkTranslations, init as initI18n, onLanguageChange, t } from './core/i18n.js';
 import { initRouter, navigate, refreshCurrentScreen, registerScreen } from './core/router.js';
 import { renderHomeScreen } from './screens/home-screen.js';
 import { renderDetailsScreen } from './screens/details-screen.js';
@@ -26,6 +26,10 @@ function applyStaticTexts() {
 
 async function start() {
   await initI18n();
+
+  // Narzędzie dla autora (konsola przeglądarki): kompletność tłumaczeń
+  // oraz istnienie kluczy użytych w rejestrze gier.
+  window.__i18nCheck = () => checkTranslations({ requiredKeys: getGameTranslationKeys() });
 
   const container = document.getElementById('app');
   const titleElement = document.getElementById('screen-title');

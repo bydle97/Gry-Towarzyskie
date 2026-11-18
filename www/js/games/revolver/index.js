@@ -62,6 +62,7 @@ const REDRAW_GUARD_MS = 250;
  *   rounds: number,
  *   roundIndex: number,
  *   word: string,
+ *   usedPhraseKeys: Set<string>,
  *   redrawsLeft: number,
  *   lastRedrawAt: number,
  *   firstStarterId: string,
@@ -118,6 +119,7 @@ const game = {
       rounds: 0,
       roundIndex: 0,
       word: '',
+      usedPhraseKeys: new Set(),
       redrawsLeft: 0,
       lastRedrawAt: 0,
       firstStarterId: randomTeamId(),
@@ -317,7 +319,13 @@ function renderState() {
         onRoundCancelled: handleRoundCancelled,
         onRedrawWord: redrawWord,
         redrawsLeft: state.redrawsLeft,
-        canRedrawWord: hasOther(getPhrasePoolId(), state.phrases, getPhraseKey, state.word),
+        canRedrawWord: hasOther(
+          getPhrasePoolId(),
+          state.phrases,
+          getPhraseKey,
+          state.word,
+          state.usedPhraseKeys,
+        ),
       }),
     );
     container.append(createExitFooter(requestExit));
@@ -390,11 +398,27 @@ function startMatch(teams) {
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
   state.firstStarterId = randomTeamId();
+  // Nowa partia: zbiór haseł pilnuje, żeby nic nie powtórzyło się w tej partii.
+  state.usedPhraseKeys = new Set();
   prepareRound();
 }
 
+/**
+ * Losuje hasło z puli sesji, z pominięciem haseł użytych w tej partii.
+ * @returns {string | null}
+ */
+function drawPhrase() {
+  const phrase = drawNext(getPhrasePoolId(), state.phrases, getPhraseKey, state.usedPhraseKeys);
+
+  if (phrase !== null) {
+    state.usedPhraseKeys.add(getPhraseKey(phrase));
+  }
+
+  return phrase;
+}
+
 function prepareRound() {
-  state.word = drawNext(getPhrasePoolId(), state.phrases, getPhraseKey) ?? '—';
+  state.word = drawPhrase() ?? '—';
   state.redrawsLeft = MAX_REDRAWS_PER_ROUND;
   state.lastRedrawAt = 0;
   state.explainers = {
@@ -430,12 +454,19 @@ function redrawWord() {
     return;
   }
 
-  const next = redraw(getPhrasePoolId(), state.phrases, getPhraseKey, state.word);
+  const next = redraw(
+    getPhrasePoolId(),
+    state.phrases,
+    getPhraseKey,
+    state.word,
+    state.usedPhraseKeys,
+  );
 
   if (!next) {
     return;
   }
 
+  state.usedPhraseKeys.add(getPhraseKey(next));
   state.word = next;
   state.redrawsLeft -= 1;
   state.lastRedrawAt = now;
@@ -485,6 +516,7 @@ function playAgain() {
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
   state.firstStarterId = randomTeamId();
+  state.usedPhraseKeys = new Set();
   prepareRound();
 }
 

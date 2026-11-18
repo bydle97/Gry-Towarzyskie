@@ -1,14 +1,12 @@
 /**
- * Wspólne api przekazywane grom w funkcji mount(container, players, api).
- * Jedno miejsce, w którym HUB składa komponenty dla gier — gry nie importują
- * modułów HUB-a bezpośrednio.
+ * Api przekazywane grom w funkcji mount(container, players, api).
  *
- * Dostępne teraz:
+ * Zawiera wyłącznie:
  *  - shuffleRoles(roleList, playerCount) — losowanie ról (core/random.js),
  *  - exit() — zakończenie gry i powrót do ekranu szczegółów gry.
  *
- * Komponenty passPhone / holdToReveal / timer z kontraktu dołączą razem ze
- * wspólnymi komponentami w js/components/ (KROK 5) — żadna gra ich jeszcze nie używa.
+ * Wspólne elementy interfejsu (np. components/team-setup.js, components/content-status.js)
+ * oraz tłumaczenia (core/i18n.js) gry importują bezpośrednio.
  */
 import { dealRoles } from './random.js';
 

@@ -11,6 +11,13 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Wyłącza „pociągnij, aby odświeżyć” (np. Chrome na Androidzie) — przypadkowe
+   przeładowanie w trakcie gry kasowałoby partię i listę graczy. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 body,
 h1,
 h2,

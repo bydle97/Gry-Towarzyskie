@@ -32,6 +32,9 @@
 .screen-container {
   flex: 1;
   padding: var(--space-4) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  /* W poziomie (telefon z wycięciem obrócony bokiem) treść nie wchodzi pod wycięcie. */
+  padding-left: max(var(--space-4), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
 }
 
 .screen {

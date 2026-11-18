@@ -71,6 +71,7 @@ const getQuestionKey = (question) => question.text;
  *   playerNames: Map<string, string>,
  *   questions: Array<{text: string, answer: number, unit: string}>,
  *   question: {text: string, answer: number, unit: string} | null,
+ *   usedQuestionKeys: Set<string>,
  *   totalQuestions: number,
  *   questionIndex: number,
  *   order: string[],
@@ -83,6 +84,7 @@ const getQuestionKey = (question) => question.text;
  *   loadError: string,
  *   loadToken: number,
  *   exitRequested: boolean,
+ *   renderPending: boolean,
  * }}
  */
 let state = null;
@@ -111,6 +113,7 @@ const game = {
       'games.guess-number.tips.3',
     ],
   },
+  howToPlayParams: { count: QUESTIONS_PER_GAME },
 
   /**
    * @param {HTMLElement} container
@@ -130,6 +133,7 @@ const game = {
       playerNames: createNameMap(roster),
       questions: [],
       question: null,
+      usedQuestionKeys: new Set(),
       totalQuestions: 0,
       questionIndex: 0,
       order: [],
@@ -142,6 +146,7 @@ const game = {
       loadError: '',
       loadToken: 0,
       exitRequested: false,
+      renderPending: false,
     };
 
     renderState();
@@ -158,6 +163,25 @@ export default game;
 
 function currentQuestion() {
   return state.question;
+}
+
+/**
+ * Losuje kolejne pytanie z puli sesji, z pominięciem pytań użytych w tej partii.
+ * @returns {{text: string, answer: number, unit: string} | null}
+ */
+function drawQuestion() {
+  const question = drawNext(
+    getQuestionPoolId(),
+    state.questions,
+    getQuestionKey,
+    state.usedQuestionKeys,
+  );
+
+  if (question !== null) {
+    state.usedQuestionKeys.add(getQuestionKey(question));
+  }
+
+  return question;
 }
 
 /** Wczytuje pytania z pliku; gra startuje dopiero po udanym wczytaniu. */
@@ -207,7 +231,10 @@ function showLoadError(message) {
 /** Pierwsza runda zaczyna się po wczytaniu pliku z pytaniami. */
 function startGame(questions) {
   state.questions = questions;
-  state.question = drawNext(getQuestionPoolId(), questions, getQuestionKey);
+  // Nowa partia: pytania poprzednich partii pilnuje pula sesji, a ten zbiór
+  // pilnuje, żeby nic nie powtórzyło się w obrębie tej partii.
+  state.usedQuestionKeys = new Set();
+  state.question = drawQuestion();
   state.totalQuestions = Math.min(QUESTIONS_PER_GAME, questions.length);
   state.questionIndex = 0;
   // Pierwsza runda: losowa kolejność stałych identyfikatorów graczy.
@@ -231,13 +258,24 @@ function renderState() {
 
   if (state.exitRequested) {
     if (container.querySelector('.gn-overlay')) {
+      // Ekran pod nakładką jest nieaktualny (np. pytania wczytały się w tle) —
+      // przerysujemy go po zamknięciu okna.
+      state.renderPending = true;
       return;
     }
     const overlay = renderExitDialog({
       onConfirm: () => state.api.exit(),
       onCancel: () => {
         state.exitRequested = false;
-        renderState();
+
+        if (state.renderPending) {
+          state.renderPending = false;
+          renderState();
+          return;
+        }
+
+        // Zdejmujemy tylko nakładkę: ekran pod spodem (np. wpisana liczba) zostaje bez zmian.
+        container.querySelector('.gn-overlay')?.remove();
       },
     });
     container.append(overlay);
@@ -245,6 +283,7 @@ function renderState() {
     return;
   }
 
+  state.renderPending = false;
   clear(container);
   window.scrollTo(0, 0);
 
@@ -296,6 +335,7 @@ function renderState() {
         ranking: state.ranking,
         roundScores: state.roundScores,
         totals: state.totals,
+        isLastQuestion: state.questionIndex + 1 >= state.totalQuestions,
         onNext: goToNextQuestion,
       }),
     );
@@ -321,7 +361,13 @@ function renderState() {
       onRedrawQuestion: redrawQuestion,
       canRedrawQuestion:
         canRedrawRound(state.guesses) && state.question !== null
-          ? hasOther(getQuestionPoolId(), state.questions, getQuestionKey, state.question.text)
+          ? hasOther(
+              getQuestionPoolId(),
+              state.questions,
+              getQuestionKey,
+              state.question.text,
+              state.usedQuestionKeys,
+            )
           : false,
       onShowStandings: openStandings,
     }),
@@ -407,12 +453,20 @@ function redrawQuestion() {
     return;
   }
 
-  const next = redraw(getQuestionPoolId(), state.questions, getQuestionKey, state.question.text);
+  const next = redraw(
+    getQuestionPoolId(),
+    state.questions,
+    getQuestionKey,
+    state.question.text,
+    state.usedQuestionKeys,
+  );
 
   if (!next) {
     return;
   }
 
+  // Odrzucone pytanie już jest w zbiorze partii (było wylosowane), więc nie wróci.
+  state.usedQuestionKeys.add(getQuestionKey(next));
   state.question = next;
   renderState();
 }
@@ -432,7 +486,8 @@ function revealAnswer() {
 
 /** Następne pytanie — kolejność graczy bierzemy z rankingu (najbliższy zaczyna). */
 function goToNextQuestion() {
-  if (!state) {
+  // Tylko z ekranu odpowiedzi: drugie wywołanie zbudowałoby kolejność z pustego rankingu.
+  if (!state || state.phase !== 'answer') {
     return;
   }
 
@@ -451,7 +506,7 @@ function goToNextQuestion() {
     state.phase = 'finished';
   } else {
     // Kolejne pytanie z puli sesji — nie powtarza wcześniej użytych.
-    state.question = drawNext(getQuestionPoolId(), state.questions, getQuestionKey);
+    state.question = drawQuestion();
     state.phase = state.question === null ? 'finished' : 'turn';
   }
 

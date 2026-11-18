@@ -64,7 +64,26 @@ export function getGameById(gameId) {
   return games.find((game) => game.id === gameId) ?? null;
 }
 
-/** @returns {boolean} true, gdy w rejestrze jest co najmniej jedna gra */
-export function hasGames() {
-  return games.length > 0;
+/**
+ * Klucze tłumaczeń używane przez definicje gier (nazwa, opis, cel, kroki, wskazówki).
+ * Czyta surowe definicje, bo obiekty z rejestru mają już przetłumaczone gettery.
+ * Używane przez window.__i18nCheck() do wykrycia literówek w kluczach.
+ * @returns {string[]}
+ */
+export function getGameTranslationKeys() {
+  const keys = [];
+
+  for (const rawGame of RAW_GAMES) {
+    const howToPlay = rawGame.howToPlay ?? {};
+
+    keys.push(
+      rawGame.nameKey,
+      rawGame.descriptionKey,
+      howToPlay.goalKey,
+      ...(howToPlay.stepKeys ?? []),
+      ...(howToPlay.tipKeys ?? []),
+    );
+  }
+
+  return keys.filter((key) => typeof key === 'string' && key !== '');
 }

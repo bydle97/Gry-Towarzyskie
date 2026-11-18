@@ -85,6 +85,7 @@ const VIBRATION_END_MS = 300;
  *   rounds: number,
  *   roundIndex: number,
  *   category: string,
+ *   usedCategoryKeys: Set<string>,
  *   firstStarterId: string,
  *   scores: {first: number, second: number},
  *   duelists: {first: string, second: string} | null,
@@ -157,6 +158,7 @@ const game = {
       rounds: 0,
       roundIndex: 0,
       category: '',
+      usedCategoryKeys: new Set(),
       firstStarterId: randomTeamId(),
       scores: { first: 0, second: 0 },
       duelists: null,
@@ -460,6 +462,7 @@ function renderIntroPhase() {
         state.categories,
         getCategoryKey,
         state.category,
+        state.usedCategoryKeys,
       ),
     }),
   );
@@ -777,11 +780,32 @@ function startMatch(teams) {
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
   state.firstStarterId = randomTeamId();
+  // Nowa partia: zbiór kategorii pilnuje, żeby nic nie powtórzyło się w tej partii.
+  state.usedCategoryKeys = new Set();
   prepareRound();
 }
 
+/**
+ * Losuje kategorię z puli sesji, z pominięciem kategorii użytych w tej partii.
+ * @returns {string | null}
+ */
+function drawCategory() {
+  const category = drawNext(
+    getCategoryPoolId(),
+    state.categories,
+    getCategoryKey,
+    state.usedCategoryKeys,
+  );
+
+  if (category !== null) {
+    state.usedCategoryKeys.add(getCategoryKey(category));
+  }
+
+  return category;
+}
+
 function prepareRound() {
-  state.category = drawNext(getCategoryPoolId(), state.categories, getCategoryKey) ?? '—';
+  state.category = drawCategory() ?? '—';
   state.duelists = {
     first: state.order.first[state.roundIndex % state.order.first.length],
     second: state.order.second[state.roundIndex % state.order.second.length],
@@ -803,12 +827,19 @@ function redrawCategory() {
     return;
   }
 
-  const next = redraw(getCategoryPoolId(), state.categories, getCategoryKey, state.category);
+  const next = redraw(
+    getCategoryPoolId(),
+    state.categories,
+    getCategoryKey,
+    state.category,
+    state.usedCategoryKeys,
+  );
 
   if (!next) {
     return;
   }
 
+  state.usedCategoryKeys.add(getCategoryKey(next));
   state.category = next;
   renderState();
 }
@@ -837,6 +868,7 @@ function playAgain() {
   state.scores = { first: 0, second: 0 };
   state.roundIndex = 0;
   state.firstStarterId = randomTeamId();
+  state.usedCategoryKeys = new Set();
   prepareRound();
 }
 

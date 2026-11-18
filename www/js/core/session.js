@@ -19,54 +19,6 @@ export function getPlayerNames() {
 }
 
 /**
- * Zapisuje imiona w pamięci sesji (po normalizacji).
- * Puste wpisy i duplikaty (bez względu na wielkość liter) są pomijane — funkcja
- * nie ma kanału błędu, więc nigdy nie dopuszcza dwóch osób o tym samym imieniu.
- * @param {string[]} names
- * @returns {string[]} zapisana kopia
- */
-export function setPlayerNames(names) {
-  const seen = new Set();
-
-  state.playerNames = (Array.isArray(names) ? names : [])
-    .map(normalizePlayerName)
-    .filter((name) => {
-      if (name === '') {
-        return false;
-      }
-
-      const key = name.toLocaleLowerCase('pl');
-
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    });
-
-  return getPlayerNames();
-}
-
-/** Czyści cały stan sesji (przydatne przy wyjściu z gry). */
-export function clearSession() {
-  state.playerNames = [];
-}
-
-/**
- * Przycina spacje, skleja wielokrotne spacje i ogranicza długość.
- * @param {unknown} value
- * @returns {string}
- */
-export function normalizePlayerName(value) {
-  return String(value ?? '')
-    .normalize('NFC')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, PLAYER_NAME_MAX_LENGTH);
-}
-
-/**
  * Dodaje gracza do listy sesji.
  * @param {string} rawName imię wpisane przez użytkownika (spacje są przycinane)
  * @returns {{ok: true, names: string[]} | {ok: false, error: string}}

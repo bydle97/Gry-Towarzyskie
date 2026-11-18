@@ -12,6 +12,11 @@
  *
  * Klucz elementu podaje gra przez getKey(): dla pytań to id, dla haseł i kategorii
  * sam tekst. Klucze muszą być unikalne w obrębie jednej puli.
+ *
+ * Bez powtórzeń w obrębie partii: gra prowadzi zbiór kluczy użytych w bieżącej
+ * partii i przekazuje go jako excludeKeys. Gdy pula wyczerpie się w środku partii
+ * i zaczyna od nowa, te klucze nadal są wykluczone — wolno je dopuścić dopiero
+ * wtedy, gdy naprawdę nie ma nic innego (partia zużyła już całą listę).
  */
 import { shuffle } from './random.js';
 
@@ -53,36 +58,69 @@ function keyOf(item, getKey) {
 }
 
 /**
+ * Zbiór kluczy wykluczonych (np. użytych w bieżącej partii) jako Set tekstów.
+ * @param {Iterable<string>|null|undefined} excludeKeys
+ * @returns {Set<string>}
+ */
+function toKeySet(excludeKeys) {
+  return new Set(excludeKeys ? [...excludeKeys].map(String) : []);
+}
+
+/**
  * Losuje jeden element spośród jeszcze niewykorzystanych w danej puli i zapamiętuje
  * jego klucz jako użyty.
  *
  * Gdy wszystkie elementy są już użyte, pula zaczyna się od nowa — bez komunikatu
- * dla użytkownika. Pierwszy element po resecie nie jest jednak identyczny z ostatnio
- * wylosowanym (o ile pula ma więcej niż jeden element).
+ * dla użytkownika. Po resecie:
+ *  - klucze z excludeKeys (użyte w bieżącej partii) nadal są wykluczone i od razu
+ *    liczą się jako użyte w nowym obiegu puli,
+ *  - pierwszy element nie jest identyczny z ostatnio wylosowanym,
+ *  - wykluczenia są luzowane dopiero wtedy, gdy nie zostaje nic innego.
  *
  * @param {string} poolId identyfikator puli, np. "guess-number"
  * @param {ReadonlyArray<T>} items cała lista treści (stała, nie jest modyfikowana)
  * @param {(item: T) => string} getKey unikalny klucz elementu (id albo tekst)
+ * @param {Iterable<string>} [excludeKeys] klucze użyte w bieżącej partii
  * @returns {T | null} wylosowany element albo null, gdy lista jest pusta
  * @template T
  */
-export function drawNext(poolId, items, getKey) {
+export function drawNext(poolId, items, getKey, excludeKeys) {
   if (items.length === 0) {
     return null;
   }
 
   const pool = getPool(poolId);
-  let candidates = items.filter((item) => !pool.used.has(keyOf(item, getKey)));
+  const excluded = toKeySet(excludeKeys);
+  let candidates = items.filter((item) => {
+    const key = keyOf(item, getKey);
+    return !pool.used.has(key) && !excluded.has(key);
+  });
 
   if (candidates.length === 0) {
+    // Nowy obieg puli. Elementy bieżącej partii od razu liczą się jako użyte,
+    // więc nie wrócą ani w tej partii, ani zaraz na początku następnej.
     pool.used.clear();
-    candidates =
-      items.length > 1 && pool.lastKey !== null
-        ? items.filter((item) => keyOf(item, getKey) !== pool.lastKey)
-        : [...items];
+    for (const key of excluded) {
+      pool.used.add(key);
+    }
+
+    // Od najostrzejszego warunku do najluźniejszego — bierzemy pierwszy niepusty.
+    const rules = [
+      (key) => !excluded.has(key) && key !== pool.lastKey,
+      (key) => !excluded.has(key),
+      (key) => key !== pool.lastKey,
+    ];
+
+    for (const isAllowed of rules) {
+      candidates = items.filter((item) => isAllowed(keyOf(item, getKey)));
+
+      if (candidates.length > 0) {
+        break;
+      }
+    }
   }
 
-  // Zabezpieczenie na wypadek zduplikowanych kluczy: zawsze coś zwracamy.
+  // Zabezpieczenie (np. jednoelementowa lista albo zduplikowane klucze): zawsze coś zwracamy.
   if (candidates.length === 0) {
     candidates = [...items];
   }
@@ -105,16 +143,18 @@ export function drawNext(poolId, items, getKey) {
  * @param {ReadonlyArray<T>} items
  * @param {(item: T) => string} getKey
  * @param {string|null} currentKey klucz bieżącego elementu
+ * @param {Iterable<string>} [excludeKeys] klucze użyte w bieżącej partii (jak w redraw)
  * @returns {boolean}
  * @template T
  */
-export function hasOther(poolId, items, getKey, currentKey) {
+export function hasOther(poolId, items, getKey, currentKey, excludeKeys) {
   const current = currentKey === null || currentKey === undefined ? null : String(currentKey);
   const pool = getPool(poolId);
+  const excluded = toKeySet(excludeKeys);
 
   return items.some((item) => {
     const key = keyOf(item, getKey);
-    return key !== current && !pool.used.has(key);
+    return key !== current && !pool.used.has(key) && !excluded.has(key);
   });
 }
 
@@ -126,16 +166,19 @@ export function hasOther(poolId, items, getKey, currentKey) {
  * @param {ReadonlyArray<T>} items
  * @param {(item: T) => string} getKey
  * @param {string|null} currentKey klucz elementu, który chcemy zastąpić
+ * @param {Iterable<string>} [excludeKeys] klucze użyte w bieżącej partii — nigdy nie
+ *   są zwracane („inne” nie może oznaczać czegoś, co już padło w tej partii)
  * @returns {T | null} nowy element albo null, gdy nie ma innej niewykorzystanej pozycji
  * @template T
  */
-export function redraw(poolId, items, getKey, currentKey) {
+export function redraw(poolId, items, getKey, currentKey, excludeKeys) {
   if (items.length === 0) {
     return null;
   }
 
   const current = currentKey === null || currentKey === undefined ? null : String(currentKey);
   const pool = getPool(poolId);
+  const excluded = toKeySet(excludeKeys);
 
   if (current !== null) {
     pool.used.add(current);
@@ -143,7 +186,7 @@ export function redraw(poolId, items, getKey, currentKey) {
 
   const candidates = items.filter((item) => {
     const key = keyOf(item, getKey);
-    return key !== current && !pool.used.has(key);
+    return key !== current && !pool.used.has(key) && !excluded.has(key);
   });
 
   if (candidates.length === 0) {

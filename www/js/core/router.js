@@ -85,11 +85,6 @@ export function back() {
   return true;
 }
 
-/** @returns {{name: string, params: Object}|null} aktualnie pokazany ekran */
-export function getCurrentRoute() {
-  return currentRoute ? { name: currentRoute.name, params: { ...currentRoute.params } } : null;
-}
-
 /**
  * Przerysowuje bieżący ekran bez zmiany historii (np. po zmianie języka).
  * @returns {boolean} false, gdy żaden ekran nie jest jeszcze pokazany
@@ -99,11 +94,22 @@ export function refreshCurrentScreen() {
     return false;
   }
 
-  renderRoute({ name: currentRoute.name, params: { ...currentRoute.params } });
+  // Odświeżenie (np. zmiana języka) zostawia przewinięcie strony bez zmian.
+  renderRoute(
+    { name: currentRoute.name, params: { ...currentRoute.params } },
+    { scrollToTop: false },
+  );
   return true;
 }
 
-function renderRoute(route) {
+/**
+ * Rysuje ekran.
+ * @param {{name: string, params: Object}} route
+ * @param {{scrollToTop?: boolean}} [options]
+ *   scrollToTop — po narysowaniu przewiń stronę na górę (domyślnie tak; nowy ekran
+ *   nie może zaczynać się w miejscu, w którym przewinięty był poprzedni)
+ */
+function renderRoute(route, { scrollToTop = true } = {}) {
   if (!shell) {
     throw new Error('Router nie został zainicjowany: wywołaj initRouter() w main.js.');
   }
@@ -131,12 +137,15 @@ function renderRoute(route) {
 
   if (!screen) {
     renderMissingScreen(screenElement, route.name);
-    return;
+  } else {
+    const cleanup = screen.render({ container: screenElement, params: route.params ?? {} });
+    if (typeof cleanup === 'function') {
+      currentCleanup = cleanup;
+    }
   }
 
-  const cleanup = screen.render({ container: screenElement, params: route.params ?? {} });
-  if (typeof cleanup === 'function') {
-    currentCleanup = cleanup;
+  if (scrollToTop) {
+    window.scrollTo(0, 0);
   }
 }
 

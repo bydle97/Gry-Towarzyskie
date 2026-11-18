@@ -319,10 +319,14 @@ export function onLanguageChange(callback) {
 
 /**
  * Kontrola kompletności tłumaczeń względem języka źródłowego.
- * Dostępna w konsoli jako window.__i18nCheck().
- * @returns {Object<string, {missing: string[], extra: string[]}>}
+ * Dostępna w konsoli jako window.__i18nCheck() (podpinana w main.js).
+ * @param {{requiredKeys?: string[]}} [options]
+ *   requiredKeys — klucze, które MUSZĄ istnieć w języku źródłowym (np. klucze
+ *   nazw, opisów i instrukcji z rejestru gier); brakujące trafiają do raportu
+ *   pod nazwą "required".
+ * @returns {Object<string, {missing: string[], extra?: string[]}>}
  */
-export function checkTranslations() {
+export function checkTranslations({ requiredKeys = [] } = {}) {
   const source = messages.get(DEFAULT_LANGUAGE) ?? {};
   const sourceKeys = Object.keys(source);
   const sourceSet = new Set(sourceKeys);
@@ -339,6 +343,10 @@ export function checkTranslations() {
     };
   }
 
+  const required = {
+    missing: [...new Set(requiredKeys)].filter((key) => !sourceSet.has(key)),
+  };
+
   console.group('[i18n] Kontrola tłumaczeń');
 
   for (const [code, entry] of Object.entries(report)) {
@@ -348,8 +356,13 @@ export function checkTranslations() {
     );
   }
 
+  console.log(
+    `klucze z rejestru gier brakujące w "${DEFAULT_LANGUAGE}": ${required.missing.length}`,
+    required,
+  );
+
   console.groupEnd();
-  return report;
+  return { ...report, required };
 }
 
 /**
@@ -384,10 +397,6 @@ export async function init() {
 
   currentLanguage = chooseInitialLanguage();
   applyDocumentLanguage();
-
-  if (typeof window !== 'undefined') {
-    window.__i18nCheck = checkTranslations;
-  }
 
   initialized = true;
   return currentLanguage;

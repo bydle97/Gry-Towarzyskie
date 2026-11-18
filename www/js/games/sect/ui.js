@@ -155,7 +155,9 @@ const STYLES = `
   font-weight: 700;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: manipulation;
+  /* Bez przewijania i bez systemowego menu/lupy przy długim przytrzymaniu. */
+  touch-action: none;
+  -webkit-touch-callout: none;
 }
 
 .sec-hold--active {
@@ -430,6 +432,23 @@ const STYLES = `
   min-height: 48px;
   padding: 0 var(--space-4);
   font-size: 0.9rem;
+}
+
+/* Koniec czasu: ikona i tekst (nie tylko kolor) oraz wyróżniona ramka. */
+.sec-timer--done {
+  border-color: var(--color-danger);
+  box-shadow: inset 0 0 0 1px var(--color-danger);
+}
+
+.sec-timer--done .sec-timer__value {
+  color: var(--color-danger);
+}
+
+.sec-timer__done {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--color-danger);
+  text-align: center;
 }
 
 /* Ekran końcowy. */
@@ -887,12 +906,15 @@ function createSecretList(players) {
  * @param {{
  *   gameState: Object,
  *   onUnlockRole: (playerId: string) => void,
+ *   onShowRole: (playerId: string) => void,
  *   onBack: () => void,
  *   onExit: () => void,
  * }} options
+ *   onUnlockRole — dla sprawdzonych ról: pozwala sprawdzić rolę jeszcze raz,
+ *   onShowRole — dla niesprawdzonych: pokazuje rolę tej osobie od razu z podglądu.
  * @returns {HTMLElement}
  */
-export function renderPreviewScreen({ gameState, onUnlockRole, onBack, onExit }) {
+export function renderPreviewScreen({ gameState, onUnlockRole, onShowRole, onBack, onExit }) {
   const holdBox = createHoldReveal({
     label: t('games.sect.preview.hold'),
     renderContent: () => createSecretList(gameState.players),
@@ -904,13 +926,19 @@ export function renderPreviewScreen({ gameState, onUnlockRole, onBack, onExit })
     gameState.players.map((player) =>
       el('li', { class: 'sec-unlock-row' }, [
         el('span', { class: 'sec-unlock-row__name', text: player.name }),
-        el('button', {
-          class: 'button button--secondary sec-unlock-row__button',
-          type: 'button',
-          text: t('games.sect.preview.unlock'),
-          disabled: !player.roleChecked,
-          onClick: () => onUnlockRole(player.id),
-        }),
+        player.roleChecked
+          ? el('button', {
+              class: 'button button--secondary sec-unlock-row__button',
+              type: 'button',
+              text: t('games.sect.preview.unlock'),
+              onClick: () => onUnlockRole(player.id),
+            })
+          : el('button', {
+              class: 'button button--primary sec-unlock-row__button',
+              type: 'button',
+              text: t('games.sect.preview.showRole'),
+              onClick: () => onShowRole(player.id),
+            }),
       ]),
     ),
   );
@@ -960,11 +988,19 @@ function createHoldReveal({ label, renderContent }) {
     text: label,
     onPointerdown: (event) => {
       event.preventDefault();
+      // Przechwycenie wskaźnika: lekki ruch palca nie „wyjeżdża” z przycisku
+      // i nie chowa treści — zdarzenia trafiają tu aż do puszczenia.
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // starsza przeglądarka bez przechwytywania — działa jak dotąd
+      }
       show();
     },
     onPointerup: hide,
     onPointerleave: hide,
     onPointercancel: hide,
+    onLostpointercapture: hide,
     onKeydown: (event) => {
       if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
@@ -1251,19 +1287,50 @@ function formatClock(milliseconds) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+/** Długość wibracji (ms) na koniec czasu dyskusji. */
+const TIMER_END_VIBRATION_MS = 300;
+
 /**
- * Prosty licznik odliczający w dół (start/stop). destroy() trzeba wywołać
- * przy zmianie ekranu, żeby nie zostawić działającego interwału.
- * @param {{seconds: number}} options
+ * Stan licznika dyskusji. Trzyma go stan gry (index.js), a nie komponent, więc
+ * przerysowanie ekranu (Tablica, podgląd, instrukcja) nie zeruje odliczania.
+ * @param {number} seconds
+ * @returns {{remainingMs: number, endAt: number, running: boolean, alerted: boolean}}
+ *   endAt — znacznik performance.now(), w którym czas się skończy (gdy running),
+ *   alerted — czy sygnał końca czasu już był (wibracja tylko raz)
+ */
+export function createCountdownState(seconds) {
+  return { remainingMs: seconds * 1000, endAt: 0, running: false, alerted: false };
+}
+
+/** Krótka wibracja — opcjonalna, nigdy nie może przerwać gry. */
+function vibrate(durationMs) {
+  try {
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(durationMs);
+    }
+  } catch (error) {
+    // brak wsparcia lub zgody — gramy dalej
+  }
+}
+
+/**
+ * Licznik odliczający w dół (start/stop) oparty na stanie z createCountdownState().
+ * Komponent sam niczego nie pamięta: po ponownym narysowaniu odczytuje stan i, jeśli
+ * licznik chodził, liczy dalej od zapisanego czasu końca. destroy() zatrzymuje
+ * tylko interwał odświeżania (odliczanie w stanie trwa dalej).
+ * @param {{timerState: ReturnType<typeof createCountdownState>}} options
  * @returns {{el: HTMLElement, destroy: () => void}}
  */
-function createCountdown({ seconds }) {
-  const totalMs = seconds * 1000;
-  let remainingMs = totalMs;
-  let endAt = 0;
+function createCountdown({ timerState }) {
   let tickId = null;
 
-  const valueNode = el('span', { class: 'sec-timer__value', text: formatClock(remainingMs) });
+  const valueNode = el('span', { class: 'sec-timer__value' });
+  const doneNode = el('p', {
+    class: 'sec-timer__done',
+    role: 'status',
+    text: t('games.sect.ui.timeUp'),
+    hidden: true,
+  });
 
   const startButton = el('button', {
     class: 'button button--secondary sec-timer__button',
@@ -1280,72 +1347,111 @@ function createCountdown({ seconds }) {
 
   const element = el('div', { class: 'sec-timer' }, [
     valueNode,
+    doneNode,
     el('div', { class: 'sec-timer__actions' }, [startButton, stopButton]),
   ]);
 
-  function start() {
+  function startTicking() {
+    if (tickId === null) {
+      tickId = window.setInterval(tick, 250);
+    }
+  }
+
+  function stopTicking() {
     if (tickId !== null) {
+      window.clearInterval(tickId);
+      tickId = null;
+    }
+  }
+
+  function start() {
+    if (timerState.running || timerState.remainingMs <= 0) {
       return;
     }
-    endAt = performance.now() + remainingMs;
-    tickId = window.setInterval(tick, 250);
+    timerState.endAt = performance.now() + timerState.remainingMs;
+    timerState.running = true;
+    startTicking();
+    render();
   }
 
   function stop() {
-    if (tickId === null) {
+    if (!timerState.running) {
       return;
     }
-    remainingMs = Math.max(0, endAt - performance.now());
-    window.clearInterval(tickId);
-    tickId = null;
+    timerState.remainingMs = Math.max(0, timerState.endAt - performance.now());
+    timerState.running = false;
+    stopTicking();
+    render();
+  }
+
+  function finish() {
+    timerState.remainingMs = 0;
+    timerState.running = false;
+    stopTicking();
+
+    if (!timerState.alerted) {
+      timerState.alerted = true;
+      vibrate(TIMER_END_VIBRATION_MS);
+    }
+
     render();
   }
 
   function tick() {
-    const left = endAt - performance.now();
+    const left = timerState.endAt - performance.now();
 
     if (left <= 0) {
-      remainingMs = 0;
-      window.clearInterval(tickId);
-      tickId = null;
-      render();
+      finish();
       return;
     }
 
-    remainingMs = left;
+    timerState.remainingMs = left;
     render();
   }
 
   function render() {
-    valueNode.textContent = formatClock(remainingMs);
+    const done = timerState.remainingMs <= 0;
+
+    valueNode.textContent = formatClock(timerState.remainingMs);
+    doneNode.hidden = !done;
+    element.classList.toggle('sec-timer--done', done);
+    startButton.disabled = done || timerState.running;
+    stopButton.disabled = !timerState.running;
   }
 
-  function destroy() {
-    if (tickId !== null) {
-      window.clearInterval(tickId);
-      tickId = null;
+  // Ponowne narysowanie ekranu: licznik chodził w tle — liczymy dalej albo kończymy.
+  if (timerState.running) {
+    if (timerState.endAt - performance.now() <= 0) {
+      finish();
+    } else {
+      timerState.remainingMs = timerState.endAt - performance.now();
+      startTicking();
     }
   }
 
-  return { el: element, destroy };
+  render();
+
+  return { el: element, destroy: stopTicking };
 }
 
 /**
  * Dzień: dyskusja z opcjonalnym licznikiem czasu.
+ * @param {{timerState: ReturnType<typeof createCountdownState>}} options
+ *   timerState — stan licznika trzymany przez grę (przetrwa przerysowanie ekranu)
  * @returns {{el: HTMLElement, destroy: () => void}}
  */
 export function renderDayDiscussionScreen({
   label,
   sayText,
   doText,
-  seconds,
+  timerState,
   onNext,
   onOpenPreview,
   onOpenBoard,
   onOpenGuide,
   onAbort,
 }) {
-  const timer = createCountdown({ seconds });
+  const timer = createCountdown({ timerState });
 
   const element = createGmScreenFrame({
     label,
@@ -1475,17 +1581,17 @@ function describeNightEntry(entry, players) {
  *   winnerText: {text: string, isSect: boolean},
  *   players: Object[],
  *   nightLog: Object[],
- *   onPlayAgain: () => void,
  *   onNewRoles: () => void,
  *   onExit: () => void,
  * }} options
+ *   Brak „Jeszcze raz z tymi samymi rolami”: role są tu ujawniane wszystkim,
+ *   więc kolejna partia zawsze zaczyna się od nowego losowania.
  * @returns {HTMLElement}
  */
 export function renderFinishedScreen({
   winnerText,
   players,
   nightLog,
-  onPlayAgain,
   onNewRoles,
   onExit,
 }) {
@@ -1541,12 +1647,6 @@ export function renderFinishedScreen({
 
     el('button', {
       class: 'button button--primary button--block',
-      type: 'button',
-      text: t('games.sect.finished.playAgain'),
-      onClick: onPlayAgain,
-    }),
-    el('button', {
-      class: 'button button--secondary button--block',
       type: 'button',
       text: t('games.sect.finished.newRoles'),
       onClick: onNewRoles,

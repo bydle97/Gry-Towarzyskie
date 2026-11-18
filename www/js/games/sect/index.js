@@ -35,6 +35,7 @@ import {
   getMorningTexts,
 } from './script.js';
 import {
+  createCountdownState,
   ensureStyles,
   removeStyles,
   renderBoardOverlay,
@@ -64,6 +65,7 @@ import {
  *   gameState: Object | null,
  *   phase: 'setup'|'check'|'reveal'|'guide'|'night'|'morning'|'day-discussion'|'day-vote'|'day-result'|'finished',
  *   revealPlayerId: string | null,
+ *   revealReturnPhase: string | null,
  *   previewOpen: boolean,
  *   boardOpen: boolean,
  *   guideMode: 'auto'|'manual'|null,
@@ -76,6 +78,7 @@ import {
  *   nightConfirmed: boolean,
  *   morningInfo: Object | null,
  *   dayResult: Object | null,
+ *   discussionTimer: Object | null,
  *   screenCleanup: Function | null,
  *   dialog: null | {title: string, message: string, confirmLabel: string, onConfirm: Function},
  * }}
@@ -119,6 +122,7 @@ const game = {
       gameState: null,
       phase: 'setup',
       revealPlayerId: null,
+      revealReturnPhase: null,
       previewOpen: false,
       boardOpen: false,
       guideMode: null,
@@ -131,6 +135,7 @@ const game = {
       nightConfirmed: false,
       morningInfo: null,
       dayResult: null,
+      discussionTimer: null,
       screenCleanup: null,
       dialog: null,
     };
@@ -338,7 +343,8 @@ function renderCheck() {
       checkedCount,
       allChecked: checkedCount === gameState.players.length,
       onPickPlayer: askPlayer,
-      onOpenPreview: openPreview,
+      // Ekran sprawdzania ról krąży po graczach — podgląd dopiero po ostrzeżeniu.
+      onOpenPreview: askOpenPreview,
       onGoToGm: askGoToGm,
       onExit: requestExit,
     }),
@@ -369,7 +375,8 @@ function renderReveal() {
   const player = state.gameState.players.find((item) => item.id === state.revealPlayerId);
 
   if (!player) {
-    state.phase = 'check';
+    state.revealPlayerId = null;
+    returnFromReveal();
     renderState();
     return;
   }
@@ -387,13 +394,63 @@ function renderReveal() {
 function hideRole() {
   state.gameState = markRoleChecked(state.gameState, state.revealPlayerId);
   state.revealPlayerId = null;
-  state.phase = 'check';
+  returnFromReveal();
   renderState();
+}
+
+/**
+ * Powrót z ekranu roli: do sprawdzania ról albo — gdy rolę pokazano z Podglądu
+ * ról — z powrotem do podglądu nad tym samym etapem gry (np. noc).
+ */
+function returnFromReveal() {
+  if (state.revealReturnPhase) {
+    state.phase = state.revealReturnPhase;
+    state.revealReturnPhase = null;
+    state.previewOpen = true;
+    return;
+  }
+
+  state.phase = 'check';
 }
 
 function openPreview() {
   state.previewOpen = true;
   renderState();
+}
+
+/** Podgląd z ekranu sprawdzania ról — tylko po potwierdzeniu, że to mistrz gry. */
+function askOpenPreview() {
+  openDialog({
+    title: t('games.sect.dialog.previewTitle'),
+    message: t('games.sect.dialog.previewMessage'),
+    confirmLabel: t('games.sect.dialog.previewConfirm'),
+    onConfirm: openPreview,
+  });
+}
+
+/**
+ * „Pokaż rolę tej osobie” z Podglądu ról: dla kogoś, kto nie sprawdził roli.
+ * Po „Ukryj rolę” osoba jest sprawdzona, a mistrz gry wraca do podglądu.
+ */
+function askShowRole(playerId) {
+  const player = state.gameState.players.find((item) => item.id === playerId);
+
+  if (!player || player.roleChecked) {
+    return;
+  }
+
+  openDialog({
+    title: t('games.sect.dialog.handPhoneTitle', { name: player.name }),
+    message: t('games.sect.dialog.handPhoneMessage'),
+    confirmLabel: t('games.sect.dialog.handPhoneConfirm'),
+    onConfirm: () => {
+      state.revealReturnPhase = state.phase;
+      state.previewOpen = false;
+      state.revealPlayerId = playerId;
+      state.phase = 'reveal';
+      renderState();
+    },
+  });
 }
 
 function closePreview() {
@@ -423,6 +480,7 @@ function renderPreview() {
     renderPreviewScreen({
       gameState: state.gameState,
       onUnlockRole: askUnlockRole,
+      onShowRole: askShowRole,
       onBack: closePreview,
       onExit: requestExit,
     }),
@@ -700,16 +758,23 @@ function afterMorning() {
     return;
   }
 
+  // Każdy dzień ma świeży licznik; jego stan żyje tutaj, a nie w komponencie,
+  // więc zajrzenie na Tablicę, do podglądu lub instrukcji go nie zeruje.
+  state.discussionTimer = createCountdownState(DISCUSSION_SECONDS);
   state.phase = 'day-discussion';
   renderState();
 }
 
 function renderDayDiscussion() {
+  if (!state.discussionTimer) {
+    state.discussionTimer = createCountdownState(DISCUSSION_SECONDS);
+  }
+
   const screen = renderDayDiscussionScreen({
     label: t('games.sect.day.label', { day: formatNumber(state.gameState.nightNumber) }),
     sayText: DAY_TEXTS.discussionSay,
     doText: DAY_TEXTS.discussionDo,
-    seconds: DISCUSSION_SECONDS,
+    timerState: state.discussionTimer,
     onNext: () => {
       state.phase = 'day-vote';
       state.selection = null;
@@ -819,24 +884,16 @@ function renderFinished() {
       winnerText: { text: isSect ? FINISH_TEXTS.sect : FINISH_TEXTS.villagers, isSect },
       players: state.gameState.players,
       nightLog: state.gameState.nightLog,
-      onPlayAgain: playAgainSameRoles,
       onNewRoles: playAgainNewRoles,
       onExit: () => state.api.exit(),
     }),
   );
 }
 
-/** „Jeszcze raz": te same osoby i te same role, bez ponownego sprawdzania ról. */
-function playAgainSameRoles() {
-  resetRoundView();
-  state.gameState = restartGame(state.gameState, { keepRoles: true });
-  startNight();
-}
-
-/** „Nowe role": tasowanie ról i powrót do wspólnego sprawdzania ról. */
+/** „Nowe role": te same osoby, nowe losowanie ról i powrót do wspólnego sprawdzania ról. */
 function playAgainNewRoles() {
   resetRoundView();
-  state.gameState = restartGame(state.gameState, { keepRoles: false });
+  state.gameState = restartGame(state.gameState);
   state.phase = 'check';
   renderState();
 }
@@ -850,9 +907,11 @@ function resetRoundView() {
   state.nightConfirmed = false;
   state.morningInfo = null;
   state.dayResult = null;
+  state.discussionTimer = null;
   state.previewOpen = false;
   state.boardOpen = false;
   state.revealPlayerId = null;
+  state.revealReturnPhase = null;
 }
 
 /** Wspólne akcje nagłówka ekranów mistrza gry. */

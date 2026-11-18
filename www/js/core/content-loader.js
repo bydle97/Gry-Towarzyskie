@@ -9,6 +9,7 @@
  * i raz ostrzega w konsoli.
  *
  * Format pytań: „Pytanie | odpowiedź | jednostka” (jednostka opcjonalna).
+ * Odpowiedź to liczba całkowita; spacje i podkreślenia w niej są pomijane.
  * Format haseł i kategorii: jedna pozycja w linii.
  * Puste linie i linie zaczynające się od # są ignorowane, podobnie duplikaty
  * (bez rozróżniania wielkości liter).
@@ -199,7 +200,11 @@ export async function loadQuestions(kind) {
       continue;
     }
 
-    const [questionText, answerText, unit = ''] = parts;
+    const [questionText, rawAnswerText, unit = ''] = parts;
+    // Separatory tysięcy w postaci spacji, twardych spacji i podkreśleń są dozwolone
+    // („5 000 000”, „5_000_000”). Przecinków i kropek NIE usuwamy: „64,6” po polsku
+    // i „239,057” po angielsku znaczą co innego, więc takie linie nadal są odrzucane.
+    const answerText = rawAnswerText.replace(/[\s   _]/g, '');
 
     if (questionText === '') {
       warnLine(url, line.lineNumber, 'pytanie jest puste');
