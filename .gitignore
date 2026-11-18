@@ -8,3 +8,7 @@ local.properties
 android/.gradle/
 android/app/build/
 .idea/
+android/build/
+android/local.properties
+*.apk
+*.aab

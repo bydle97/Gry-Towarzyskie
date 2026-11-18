@@ -1,0 +1,3 @@
+# Skrypty uruchamiane na Linuksie (GitHub Actions) muszą mieć końce linii LF.
+android/gradlew text eol=lf
+*.sh text eol=lf
