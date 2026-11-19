@@ -80,7 +80,7 @@
 /* --- Ekran główny: tytuł i sekcje ----------------------------------------- */
 
 .home-hero {
-  padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) 0 var(--space-2);
+  padding: var(--space-3) 0 var(--space-2);
   text-align: center;
 }
 
@@ -104,8 +104,13 @@
   font-weight: 700;
 }
 
-/* Przełącznik języka w prawym górnym rogu ekranu głównego. */
+/*
+ * Przełącznik języka w prawym górnym rogu ekranu głównego. Jest pierwszym
+ * elementem ekranu (nagłówek aplikacji jest tu ukryty), więc to on musi zejść
+ * pod pasek stanu telefonu (bateria, zasięg).
+ */
 .home-topbar {
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex;
   justify-content: flex-end;
   align-items: center;
