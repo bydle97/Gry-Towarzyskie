@@ -3,17 +3,18 @@
 Wszystko jest na gałęzi `noc` (wypchnięta na GitHuba). Do `master` nic nie scalałem. Szczegóły i godziny: docs/NOCNY-LOG.md.
 
 ## Najważniejsze
-- **APK do testów jest gotowy**: tag `apk-final`, workflow „Android APK (debug)”. Wcześniejsze: `apk-1` (sam Capacitor), `apk-2` (po fazie 3), `apk-3` (czcionki i wygląd). WYNIK_APK_FINAL
+- **APK do testów jest gotowy**: tag **`apk-final-3`**, workflow „Android APK (debug)”, artefakt `gry-towarzyskie-apk-final-3-debug` (4,6 MB, dostępny do 19 grudnia 2026). Wcześniejsze działające: `apk-1` (sam Capacitor), `apk-2` (po fazie 3), `apk-3` (czcionki i wygląd). `apk-final` i `apk-final-2` padły na błędzie w komentarzu XML (`--` w `colors.xml`), poprawione w `apk-final-3`.
+  https://github.com/bydle97/Gry-Towarzyskie/actions/runs/44425344110
 - Wszystkie fazy 0–5 zrobione. Duża część faz 1 i 3 była już w kodzie z Twoich wcześniejszych commitów; sprawdziłem ją testami i w przeglądarce, dorobiłem braki.
 
 ## Jak zainstalować APK
-1. GitHub → repozytorium → **Actions** → po lewej **Android APK (debug)** → uruchomienie dla `apk-final` (zielone).
-2. Na dole strony **Artifacts** → `gry-towarzyskie-apk-final-debug` (pobiera ZIP; trzeba być zalogowanym).
+1. GitHub → repozytorium → **Actions** → po lewej **Android APK (debug)** → uruchomienie dla `apk-final-3` (zielone).
+2. Na dole strony **Artifacts** → `gry-towarzyskie-apk-final-3-debug` (pobiera ZIP; trzeba być zalogowanym).
 3. Rozpakuj, plik `.apk` prześlij na telefon (kabel, Dysk, e-mail) i otwórz.
 4. Android poprosi o zgodę na instalację z nieznanych źródeł dla aplikacji, z której otwierasz plik: Ustawienia → **Zezwalaj z tego źródła** → wróć → **Zainstaluj**. Play Protect: **Zainstaluj mimo to**.
 5. Jeśli aktualizacja starszego APK się nie uda („pakiet koliduje”), odinstaluj poprzednią wersję (każdy build ma inny klucz debug).
 
-Artefakty są trzymane 30 dni. Nowy APK: `git tag apk-5 && git push origin apk-5` albo Actions → Run workflow. Pełny opis: docs/APK.md.
+Artefakty są trzymane 30 dni. Nowy APK: nowy tag, np. `git tag apk-4 && git push origin apk-4` albo Actions → Run workflow. Pełny opis: docs/APK.md.
 
 ## Co zrobione
 - **Faza 1** (przegląd): dorobione D-6 (focus na tytule nowego ekranu, `aria-disabled` na zablokowanych kartach) i P-1 (komunikat przy otwarciu z pliku, osobny zwykły skrypt `startup-check.js`, bo przy `file://` moduły w ogóle się nie ładują). Reszta była zrobiona — potwierdzone.
@@ -28,12 +29,14 @@ Artefakty są trzymane 30 dni. Nowy APK: `git tag apk-5 && git push origin apk-5
 - **Blokada ekranu**: w APK natywna flaga okna przez `@capacitor-community/keep-awake` 8.0.1 (zgodna z Capacitorem 8), bo Wake Lock API w Android WebView nie jest pewne; w przeglądarce dalej Wake Lock API.
 - **Uprawnienie INTERNET zostało** (zgodnie z zadaniem) — do sprawdzenia na telefonie, opis w docs/APK.md.
 - **Orientacja pionowa**: wszystkie ekrany są projektowane pionowo, a Ping-pong dzieli ekran na górę i dół.
+- Logi Actions wymagają zalogowania, więc workflow przy błędzie wypisuje kluczowe linie z Gradle jako adnotacje na stronie uruchomienia (tak znalazłem błąd XML).
 - Ping-pong ma w kodzie 2–20 graczy (drużyny od 1 osoby); poprawiłem to w CLAUDE.md (było 4–20).
 
 ## Czego NIE zrobiono i dlaczego
 - **Nie testowałem na telefonie ani w emulatorze** (brak JDK, Android SDK i urządzenia; nic nie instalowałem globalnie). Logika wstecz/wibracji/KeepAwake sprawdzona w przeglądarce z atrapą mostka natywnego Capacitora; prawdziwe zachowanie trzeba potwierdzić na telefonie.
 - **Nie pobrałem APK do `dist/`**: brak `gh`, a pobranie artefaktu wymaga zalogowania. Stan buildów sprawdzałem przez publiczne API GitHuba.
 - Lista zmienionych pytań „Na oko” (W-1): pytania poprawiłeś już wcześniej, więc nie było czego zmieniać; dane PL i EN mają same cyfry.
+- „Tak, zakończ grę” wraca do szczegółów gry, a okno mówi „Wrócisz do HUB-a” (tak było przed nocą, `game-api.exit()`); zostawiłem do Twojej decyzji.
 - Wiedźmy (od 12 osób) nie przechodziłem w przeglądarce; jej logikę pokrywa test w Node.
 - Pominięte zgodnie z zadaniem: D-2, D-8, D-18, P-2 (CSP), P-3, service worker.
 

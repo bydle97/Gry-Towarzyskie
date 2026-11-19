@@ -11,7 +11,7 @@ Dziennik pracy autonomicznej na gałęzi `noc`. Zadania: docs/ZADANIA-NOC.md.
 | 2. APK (Capacitor) | zrobione | apk-1 zbudowany w Actions (success) |
 | 3. Wampir | zrobione | było w kodzie; dodany tools/test-vampire.mjs, apk-2 |
 | 4. Wygląd | zrobione | Fredoka i Lilita One odrzucone (brak polskich znaków), apk-3 |
-| 5. Wykończenie Androida | do zrobienia | |
+| 5. Wykończenie Androida | zrobione | apk-final-3 success (apk-final i -2: błąd komentarza XML) |
 
 ## 2026-11-19 00:23 — Faza 0: ocena stanu
 
@@ -63,7 +63,7 @@ Wniosek: APK budowany wyłącznie w GitHub Actions. Bez `gh` nie pobiorę artefa
 | Faza 4 wygląd | **do zrobienia** (brak www/fonts/) |
 | Faza 5 Android | `core/wake-lock.js` już jest; reszta do zrobienia |
 
-## 2026-11-19 00:50 — Faza 1: poprawki z przeglądu
+## 2026-11-19 00:28 — Faza 1: poprawki z przeglądu
 
 Większość punktów była już w kodzie (patrz tabela w fazie 0). Dorobione:
 - **D-6**: router po narysowaniu nowego ekranu przenosi focus na tytuł (nagłówek aplikacji albo pierwszy `h1/h2` ekranu, gdy nagłówek jest ukryty), `tabindex="-1"`, bez obwódki. Przy odświeżeniu po zmianie języka focus zostaje. Zablokowane karty gier: `aria-disabled="true"` zamiast `disabled`, kliknięcie ignorowane w kodzie.
@@ -82,7 +82,7 @@ Decyzja: list zmienionych pytań (W-1) nie odtwarzam, bo dane były poprawione w
   - Pełna partia „Na oko” (3 graczy, 8 pytań): typy „1 000” i „5 000” (twarda spacja) przyjęte jako liczby, na 8. pytaniu przycisk „Pokaż wynik”, ekran końcowy z tabelą.
   - Gest „wstecz” (`history.back()`) w trakcie gry: okno „Zakończyć grę?”; „Zostań w grze” zostawia grę, kolejne „wstecz” znów pyta.
 
-## 2026-11-19 01:35 — Faza 2: pakowanie do APK (Capacitor)
+## 2026-11-19 00:33 — Faza 2: pakowanie do APK (Capacitor)
 
 - `package.json` (private, 0.1.0) z devDependencies w dokładnych wersjach jednego wydania głównego (Capacitor 8): `@capacitor/core`, `cli`, `android` 8.6.2, `@capacitor/app` 8.1.2, `@capacitor/haptics` 8.0.2, `@capacitor/assets` 4.0.0. Wymagania sprawdzone w paczkach: Node >= 22 (`engines` w `@capacitor/cli`), JDK 21 (`JavaVersion.VERSION_21` w wygenerowanym `capacitor.build.gradle`). Gradle 8.14.3, AGP 8.13.0, compile/targetSdk 36, minSdk 24.
 - `capacitor.config.json`: appId `pl.grytowarzyskie.app` (tymczasowe), appName „Gry Towarzyskie”, webDir `www`, tło `#0d1120`.
@@ -102,7 +102,7 @@ Decyzja: list zmienionych pytań (W-1) nie odtwarzam, bo dane były poprawione w
 - docs/APK.md: pobieranie, instalacja, wersje, release/AAB (klucz nigdy w repo), ostrzeżenie o appId, lista do sprawdzenia na telefonie.
 - Dodatkowo `tools/test-vampire.mjs` (zbiorczy test Wampira, faza 3) — wynik OK.
 
-## 2026-11-19 01:55 — Faza 3: gra „Wampir”
+## 2026-11-19 00:36 — Faza 3: gra „Wampir”
 
 Stan zastany: motyw, role (Wampir, Hrabia, Sługa, Znachor, Uczeń, Wiedźma, Łowca, Komendant, Mieszkaniec), ekran „Role w tej grze”, scenariusz, instrukcja mistrza, Tablica z legendą i docs/ROLE.md były już zrobione w commitach autora („Wampir: nowy motyw gry sekta”, „mechanika wampira”). Sprawdziłem je zamiast pisać od nowa.
 
@@ -115,7 +115,7 @@ Dorobione:
 - Kwestie „Powiedz na głos”, wynik łowcy i legenda Tablicy zgodne z tekstem zadania 3a–3c.
 - Przeglądarka (headless Chrome, 360x800), 10 graczy: ekran „Role w tej grze” (2 wampiry, Hrabia, Sługa, Uczeń, Komendant), sprawdzenie wszystkich 10 ról przez „Jesteś [imię]? → Tak, pokaż rolę → Ukryj rolę”, instrukcja mistrza, noc 1 (12 kroków: wampiry, sługa, znachor z uczniem, łowca z wynikiem pod przytrzymaniem), poranek, dzień z licznikiem i przyciskiem „⭐ Komendant przejmuje głosowanie”, noce 2–3 (8 kroków). Bez błędów JS w konsoli. Wiedźmy (od 12 graczy) w przeglądarce nie przechodziłem; jej logikę pokrywa test w Node.
 
-## 2026-11-19 02:55 — Faza 4: wygląd
+## 2026-11-19 00:47 — Faza 4: wygląd
 
 ### A. Czcionki (lokalne, OFL-1.1, Fontsource 5.3.0, podzbiory latin + latin-ext)
 | Gra | Czcionka | Wagi |
@@ -149,3 +149,20 @@ Tytuł „Gry Towarzyskie” większy (Baloo 2, do 3,4 rem), karty: ikona w kafe
 - Zrzuty przed (faza 1) i po: 360x800 i 320x568, HUB, szczegóły wszystkich gier, „Na oko” (pytanie i ranking), Ping-pong (gotowi, w trakcie, pauza), Wampir (noc). Brak poziomego przewijania przy 320 px (`scrollWidth <= innerWidth`).
 - `__i18nCheck()`: 0 brakujących i 0 nadmiarowych w pl i en. `node --check`, `tools/test-content-pool.mjs`, `tools/test-vampire.mjs`: OK.
 - Pełna partia „Na oko”, 3 cykle noc/dzień w Wampirze, start pojedynku w Ping-pongu: bez błędów JS.
+
+## 2026-11-19 01:02 — Faza 5: wykończenie wersji na Androida
+
+1. **Wstecz**: `window.Capacitor.Plugins` nie wystarcza bez bundlera (mostek natywny daje tylko `nativePromise`/`PluginHeaders`, obiekty wtyczek tworzy `registerPlugin` z `@capacitor/core` — sprawdzone w `node_modules/@capacitor/android/.../native-bridge.js` i `@capacitor/core/dist/index.js`). Dlatego `@capacitor/core/dist/index.js` (moduł ES bez importów, 24 KB, MIT) jest kopiowany do `www/js/vendor/native-bridge.js` skryptem `tools/update-native-bridge.mjs`. Nowy `www/js/core/native.js` (isNative, onSystemBack, vibrate, setNativeKeepAwake; w przeglądarce no-op). Router: `handleSystemBack()` używa tej samej ścieżki co gest w przeglądarce (history.back → popstate → okno „Zakończyć grę?”), przy otwartym oknie nic nie robi, na ekranie głównym zwraca false → `App.exitApp()`.
+2. **Wibracje**: `@capacitor/haptics` z zapasowym `navigator.vibrate` (Ping-pong, Wampir). **Blokada ekranu**: `core/wake-lock.js` już był (Screen Wake Lock API); w APK używa natywnej flagi przez `@capacitor-community/keep-awake` 8.0.1 (peer `@capacitor/core >= 8`, zgodna). Decyzja: Wake Lock API w Android WebView nie jest pewne, a nie mam urządzenia do sprawdzenia. Ping-pong: w trakcie pojedynku; Wampir: od pierwszej nocy do końca gry (było).
+3. **Ikona i splash**: własny rysunek SVG (dwa nakładające się dymki rozmowy w kolorach aplikacji) w `assets/src/`, PNG przez `tools/render-icons.mjs` (sharp z `@capacitor/assets`), zasoby przez `npx capacitor-assets generate --android` (74 pliki). Tło okna, splash (także `windowSplashScreenBackground` dla Androida 12+) i paski systemowe w `#0d1120`. Edge-to-edge (Android 15): Capacitor 8 `SystemBars.insetsHandling: "native"` + `viewport-fit=cover` + `env(safe-area-inset-*)` w CSS (było).
+4. **Ustawienia**: `allowBackup="false"`, versionName 0.1.0, nazwa „Gry Towarzyskie”, orientacja pionowa (decyzja: wszystkie ekrany projektowane pionowo, Ping-pong dzieli ekran na górę i dół).
+5. **Build końcowy**:
+   - `apk-final`: **failure** w `gradlew assembleDebug`. Logi Actions wymagają zalogowania, więc dodałem krok, który przy błędzie wypisuje linie z logu Gradle jako adnotacje (publiczne w API).
+   - `apk-final-2`: **failure**, adnotacja pokazała przyczynę: `res/values/colors.xml:3:38: The string "--" is not permitted within comments` (w komentarzu było „--color-bg”). Poprawione; sprawdziłem skryptem wszystkie komentarze XML w `android/app/src/main`.
+   - `apk-final-3`: **success**. Artefakt `gry-towarzyskie-apk-final-3-debug`, 4,6 MB, wygasa 2026-12-19. Krok workflow sprawdził w APK: `assets/public/index.html`, `locales/pl.json`, `data/pl/`, `fonts/`, `js/vendor/native-bridge.js`, `res/mipmap-xxxhdpi`.
+
+### Sprawdzenia
+- Przeglądarka z atrapą mostka natywnego (sztuczne `window.androidBridge` i `PluginHeaders`): rejestracja `App.addListener(backButton)`, „wstecz” na szczegółach → HUB, w grze → okno „Zakończyć grę?”, drugie „wstecz” przy otwartym oknie nic nie robi, na HUB-ie → `App.exitApp`; start pojedynku → `KeepAwake.keepAwake`, pauza → `allowSleep`, dotknięcie połowy → `Haptics.vibrate {duration: 30}`.
+- Wersja webowa bez zmian w działaniu (`__i18nCheck` OK, pojedynek, Na oko, Wampir); `node --check` wszystkich plików, `test-content-pool.mjs`, `test-vampire.mjs`: OK. Dodane `"type": "module"` w package.json (testy importujące www/ bez ostrzeżeń Node; skrypty `sect-*.js` nadal działają).
+- Na prawdziwym telefonie nic nie sprawdzone (brak urządzenia/emulatora) — lista w docs/PORANEK.md.
+- Uwaga: „Tak, zakończ grę” wraca do ekranu szczegółów gry (tak działa `game-api.exit()`), choć tekst okna mówi „Wrócisz do HUB-a”. Nie zmieniałem (zachowanie sprzed nocy), do decyzji autora.
