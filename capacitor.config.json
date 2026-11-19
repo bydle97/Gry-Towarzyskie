@@ -4,7 +4,7 @@
   "webDir": "www",
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#0d1120"
+    "backgroundColor": "#091b18"
   },
   "plugins": {
     "SystemBars": {

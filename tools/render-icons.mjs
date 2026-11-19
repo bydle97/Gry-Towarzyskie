@@ -4,7 +4,7 @@
  *
  * Uruchomienie z katalogu projektu:
  *   node tools/render-icons.mjs
- *   npx capacitor-assets generate --android --iconBackgroundColor "#0d1120" --iconBackgroundColorDark "#0d1120" --splashBackgroundColor "#0d1120" --splashBackgroundColorDark "#0d1120"
+ *   npx capacitor-assets generate --android --iconBackgroundColor "#091b18" --iconBackgroundColorDark "#091b18" --splashBackgroundColor "#091b18" --splashBackgroundColorDark "#091b18"
  *
  * sharp jest zależnością @capacitor/assets (devDependencies), w www/ nic nie dochodzi.
  */
@@ -34,7 +34,7 @@ await sharp(background, { density: 144 }).resize(1024, 1024)
 const SPLASH = 2732;
 const logo = await sharp(foreground, { density: 144 }).resize(900, 900).png().toBuffer();
 for (const name of ['splash.png', 'splash-dark.png']) {
-  await sharp({ create: { width: SPLASH, height: SPLASH, channels: 4, background: '#0d1120' } })
+  await sharp({ create: { width: SPLASH, height: SPLASH, channels: 4, background: '#091b18' } })
     .composite([{ input: logo, gravity: 'center' }]).png().toFile(out(name));
 }
 console.log('assets/*.png gotowe');

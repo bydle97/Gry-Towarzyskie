@@ -6,8 +6,8 @@
  * napisów (pytanie, hasło, kategoria, zegar) i przycisków; tekst ciągły zostaje
  * w czcionce systemowej. Ciemny motyw bazowy (base.css) się nie zmienia.
  *
- * Kontrast (obliczony wg WCAG): każdy --color-accent na tle #0d1120 i na
- * powierzchni #1a2136 ma co najmniej 4,8:1, a --color-on-accent na akcencie 5,9:1.
+ * Kontrast (obliczony wg WCAG): każdy --color-accent na tle #091b18 i na
+ * powierzchni #13302b ma co najmniej 4,8:1, a --color-on-accent na akcencie 5,9:1.
  */
 
 :root {
@@ -41,8 +41,8 @@ body[data-game='duel'] {
 body[data-game='sect'] {
   /* Wampir: krwista czerwień jako akcent tekstu, bordo na głównych przyciskach. */
   --font-game: var(--font-wampir);
-  --color-accent: #e8606c;
-  --color-accent-strong: #f07c86;
+  --color-accent: #ff7f8a;
+  --color-accent-strong: #ff9ba4;
   --color-on-accent: #1a0306;
 }
 
@@ -152,7 +152,7 @@ body[data-game='sect'] .button--primary:active:not(:disabled) {
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.05;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 0 28px rgba(255, 179, 71, 0.25);
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 0 32px rgba(95, 217, 184, 0.35);
 }
 
 .home-games__title {
@@ -174,7 +174,7 @@ body[data-game='sect'] .button--primary:active:not(:disabled) {
 }
 
 .game-card[data-game='sect'] {
-  --card-accent: #e8606c;
+  --card-accent: #ff7f8a;
 }
 
 .game-card {

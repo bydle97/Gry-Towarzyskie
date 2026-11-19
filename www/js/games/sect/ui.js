@@ -351,7 +351,7 @@ const STYLES = `
   place-items: center;
   padding: var(--space-4);
   padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
-  background-color: rgba(4, 6, 14, 0.82);
+  background-color: rgba(2, 10, 8, 0.82);
   backdrop-filter: blur(4px);
 }
 
@@ -612,7 +612,7 @@ const STYLES = `
   overflow-y: auto;
   padding: calc(var(--space-4) + env(safe-area-inset-top, 0px)) var(--space-4)
     calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
-  background-color: rgba(4, 6, 14, 0.97);
+  background-color: rgba(2, 10, 8, 0.97);
   backdrop-filter: blur(6px);
 }
 

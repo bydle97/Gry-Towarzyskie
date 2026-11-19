@@ -132,7 +132,7 @@ const STYLES = `
   display: grid;
   place-items: center;
   padding: var(--space-4);
-  background-color: rgba(4, 6, 14, 0.78);
+  background-color: rgba(2, 10, 8, 0.78);
   backdrop-filter: blur(4px);
 }
 

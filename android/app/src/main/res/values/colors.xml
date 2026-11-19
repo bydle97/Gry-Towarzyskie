@@ -2,5 +2,5 @@
 <resources>
     <!-- Tło aplikacji (to samo co zmienna color-bg w www/css/base.css): okno, ekran startowy,
          paski systemowe. Dzięki temu przy starcie nie ma białego błysku. -->
-    <color name="app_background">#0D1120</color>
+    <color name="app_background">#091B18</color>
 </resources>

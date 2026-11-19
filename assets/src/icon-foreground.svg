@@ -3,14 +3,14 @@
        Treść mieści się w strefie bezpiecznej ikon adaptacyjnych (środkowe ~62%). -->
   <!-- Grupa wyśrodkowana (skala 0,95). @capacitor/assets dodaje inset 16,7%, więc cały obrazek mieści się w masce ikony. -->
   <g transform="translate(512 512) scale(0.95) translate(-517 -548)">
-  <!-- Tylny dymek (pomarańczowy akcent aplikacji), ogonek w lewo w dół -->
-  <path fill="#ffb347" d="M268 300 h300 a72 72 0 0 1 72 72 v150 a72 72 0 0 1 -72 72 h-170 l-96 76 l14 -76 h-48 a72 72 0 0 1 -72 -72 v-150 a72 72 0 0 1 72 -72 z"/>
-  <!-- Przedni dymek (błękit), ogonek w prawo w dół, z obwódką w kolorze tła -->
-  <path fill="#5cc8ff" stroke="#0d1120" stroke-width="22" stroke-linejoin="round"
+  <!-- Tylny dymek (złoty akcent aplikacji), ogonek w lewo w dół -->
+  <path fill="#ffc466" d="M268 300 h300 a72 72 0 0 1 72 72 v150 a72 72 0 0 1 -72 72 h-170 l-96 76 l14 -76 h-48 a72 72 0 0 1 -72 -72 v-150 a72 72 0 0 1 72 -72 z"/>
+  <!-- Przedni dymek (jasny seledyn), ogonek w prawo w dół, z obwódką w kolorze tła -->
+  <path fill="#6fe0c1" stroke="#091b18" stroke-width="22" stroke-linejoin="round"
         d="M456 420 h300 a72 72 0 0 1 72 72 v150 a72 72 0 0 1 -72 72 h-48 l14 76 l-96 -76 h-170 a72 72 0 0 1 -72 -72 v-150 a72 72 0 0 1 72 -72 z"/>
   <!-- Trzy kropki „mówienia” -->
-  <circle cx="530" cy="567" r="30" fill="#0d1120"/>
-  <circle cx="606" cy="567" r="30" fill="#0d1120"/>
-  <circle cx="682" cy="567" r="30" fill="#0d1120"/>
+  <circle cx="530" cy="567" r="30" fill="#091b18"/>
+  <circle cx="606" cy="567" r="30" fill="#091b18"/>
+  <circle cx="682" cy="567" r="30" fill="#091b18"/>
   </g>
 </svg>

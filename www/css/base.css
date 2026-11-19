@@ -38,16 +38,20 @@ ol {
 :root {
   color-scheme: dark;
 
-  --color-bg: #0d1120;
-  --color-bg-soft: #141a2e;
-  --color-surface: #1a2136;
-  --color-surface-strong: #232c46;
-  --color-border: #2e3852;
-  --color-text: #f3f5fc;
-  --color-text-muted: #a7b0c8;
-  --color-accent: #ffb347;
-  --color-accent-strong: #ffc76b;
-  --color-on-accent: #201506;
+  /* Ciemny seledyn: tła i powierzchnie w odcieniach zieleni morskiej. */
+  --color-bg: #091b18;
+  --color-bg-soft: #0e2622;
+  --color-surface: #13302b;
+  --color-surface-strong: #1a3e37;
+  --color-border: #2a564d;
+  --color-text: #eef8f4;
+  --color-text-muted: #a2c3ba;
+  /* HUB: ciepłe złoto jako kontrast do seledynu. */
+  --color-accent: #ffc466;
+  --color-accent-strong: #ffd68f;
+  --color-on-accent: #241703;
+  /* Jasny seledyn: poświaty i drobne ozdoby HUB-a. */
+  --color-glow: #5fd9b8;
   --color-danger: #ff7a7a;
 
   --radius-sm: 10px;
@@ -70,7 +74,10 @@ ol {
 body {
   min-height: 100dvh;
   background-color: var(--color-bg);
-  background-image: radial-gradient(120% 70% at 50% 0%, #1d2745 0%, var(--color-bg) 65%);
+  background-image:
+    radial-gradient(110% 60% at 50% 0%, #17463d 0%, transparent 70%),
+    radial-gradient(80% 50% at 100% 100%, #0f3a33 0%, transparent 70%);
+  background-attachment: fixed;
   background-repeat: no-repeat;
   color: var(--color-text);
   font-family: var(--font-stack);
